@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>奧客互助協會</title>
+<meta name="description" content="附近餐廳出現奧客？店員一鍵求救，路過的勇者接任務拿獎勵。">
+<meta name="theme-color" content="#14306b">
+<link rel="manifest" href="manifest.webmanifest">
+<!-- iOS 主畫面捷徑 -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="奧客互助">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Press+Start+2P&display=swap">
+<style>
+/* 版面概念：夜空 + 地面的點陣遊戲畫面，地圖是「關卡」，底部是遊戲指令列 */
+:root{
+  --sky:#14306b; --sky-2:#1d4596; --night:#0b1a3d;
+  --ground:#6b4a2b; --grass:#3fae5a; --grass-dk:#257a3c;
+  --temple:#d23a2a; --gold:#f2c23b; --fire:#ff7a1a; --fire-hi:#ffd23f;
+  --paper:#fff6dc; --ink:#1a1020; --mute:#9fb3e0;
+  --ok:#3fae5a; --warn:#f2c23b; --bad:#ff4d3d;
+  --px:4px;
+  --f-pixel:"DotGothic16","Cubic 11","PingFang TC","Microsoft JhengHei",monospace;
+  --f-latin:"Press Start 2P","DotGothic16",monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--night);color:var(--paper);font-family:var(--f-pixel);font-size:16px;line-height:1.5;
+  -webkit-tap-highlight-color:transparent;overscroll-behavior:none;image-rendering:pixelated}
+button,input,select,textarea{font:inherit;color:inherit}
+img{max-width:100%}
+[hidden]{display:none!important}
+
+/* ===== 點陣框 ===== */
+.px{position:relative;background:var(--paper);color:var(--ink);
+  box-shadow:0 calc(var(--px)*-1) 0 0 var(--ink),0 var(--px) 0 0 var(--ink),
+             calc(var(--px)*-1) 0 0 0 var(--ink),var(--px) 0 0 0 var(--ink),
+             inset 0 calc(var(--px)*-1) 0 0 #d9c99a;margin:var(--px)}
+.btn{appearance:none;border:0;cursor:pointer;padding:10px 16px;background:var(--gold);color:var(--ink);
+  font-family:var(--f-pixel);font-size:16px;letter-spacing:.04em;
+  box-shadow:0 -4px 0 0 var(--ink),0 4px 0 0 var(--ink),-4px 0 0 0 var(--ink),4px 0 0 0 var(--ink),inset 0 -4px 0 0 #b98a17;
+  margin:4px;transition:transform .05s}
+.btn:active{transform:translateY(2px);box-shadow:0 -4px 0 0 var(--ink),0 4px 0 0 var(--ink),-4px 0 0 0 var(--ink),4px 0 0 0 var(--ink),inset 0 4px 0 0 #b98a17}
+.btn:focus-visible{outline:3px dashed var(--fire-hi);outline-offset:6px}
+.btn.red{background:var(--temple);color:var(--paper);box-shadow:0 -4px 0 0 var(--ink),0 4px 0 0 var(--ink),-4px 0 0 0 var(--ink),4px 0 0 0 var(--ink),inset 0 -4px 0 0 #8e1f14}
+.btn.green{background:var(--grass);color:var(--ink);box-shadow:0 -4px 0 0 var(--ink),0 4px 0 0 var(--ink),-4px 0 0 0 var(--ink),4px 0 0 0 var(--ink),inset 0 -4px 0 0 var(--grass-dk)}
+.btn.ghost{background:var(--sky-2);color:var(--paper);box-shadow:0 -4px 0 0 var(--ink),0 4px 0 0 var(--ink),-4px 0 0 0 var(--ink),4px 0 0 0 var(--ink),inset 0 -4px 0 0 var(--night)}
+.btn.wide{width:calc(100% - 8px)}
+.btn[disabled]{filter:grayscale(1);opacity:.6;cursor:not-allowed}
+
+/* ===== 版面 ===== */
+#app{height:100%;display:grid;grid-template-rows:auto 1fr auto}
+header{background:var(--sky);padding:calc(env(safe-area-inset-top,0px) + 8px) 16px 8px;
+  display:flex;align-items:center;gap:10px;border-bottom:4px solid var(--ink)}
+header h1{margin:0;font-size:20px;letter-spacing:.08em;text-shadow:2px 2px 0 var(--ink);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chips{display:flex;gap:6px}
+.chip{font-size:12px;padding:2px 6px;background:var(--night);border:2px solid var(--ink);white-space:nowrap}
+.chip.on{background:var(--grass);color:var(--ink)}
+.chip.off{background:var(--bad);color:var(--paper)}
+
+#stage{position:relative;overflow:hidden;background:var(--sky)}
+#gmap,#radar{position:absolute;inset:0;width:100%;height:100%}
+#radar{touch-action:none}
+.hud{position:absolute;left:12px;right:12px;top:12px;display:flex;gap:8px;flex-wrap:wrap;pointer-events:none}
+.hud .tag{pointer-events:auto;font-size:13px;padding:4px 8px;background:rgba(11,26,61,.85);border:3px solid var(--ink)}
+.hud .tag b{font-family:var(--f-latin);font-size:11px;color:var(--fire-hi)}
+#recenter{position:absolute;right:12px;bottom:16px;z-index:2}
+
+nav.tabs{display:grid;grid-template-columns:repeat(4,1fr);background:var(--ground);border-top:4px solid var(--ink);
+  padding-bottom:env(safe-area-inset-bottom,0px);position:relative}
+nav.tabs::before{content:"";position:absolute;left:0;right:0;top:-12px;height:8px;
+  background:repeating-linear-gradient(90deg,var(--grass) 0 12px,var(--grass-dk) 12px 16px,var(--grass) 16px 28px,transparent 28px 32px)}
+nav.tabs button{appearance:none;border:0;background:transparent;padding:8px 2px 10px;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;gap:2px;font-size:13px;color:var(--paper)}
+nav.tabs button canvas{width:28px;height:28px;image-rendering:pixelated}
+nav.tabs button[aria-selected="true"]{background:var(--night);color:var(--fire-hi)}
+nav.tabs button:focus-visible{outline:3px dashed var(--fire-hi);outline-offset:-4px}
+.badge{font-family:var(--f-latin);font-size:9px;background:var(--bad);color:var(--paper);padding:2px 4px;border:2px solid var(--ink);position:absolute;transform:translate(16px,-4px)}
+
+/* ===== 底部抽屜 ===== */
+.sheet{position:absolute;left:0;right:0;bottom:0;max-height:78%;overflow:auto;background:var(--night);
+  border-top:4px solid var(--ink);padding:16px 16px 24px;z-index:5;
+  box-shadow:0 -8px 0 rgba(0,0,0,.25)}
+.sheet h2{margin:0 0 10px;font-size:18px;color:var(--fire-hi);text-shadow:2px 2px 0 var(--ink);display:flex;align-items:center;gap:8px}
+.sheet .close{margin-left:auto}
+.list{display:grid;gap:14px}
+.card{padding:12px;display:grid;gap:6px}
+.card .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.card .name{font-size:17px;font-weight:bold;min-width:0}
+.card .meta{font-size:13px;color:#5b4a3a}
+.card .reward{font-size:14px;background:#ffe9a8;padding:4px 8px;border:2px dashed var(--ink)}
+.lv{font-family:var(--f-latin);font-size:10px;padding:3px 6px;border:2px solid var(--ink);color:var(--paper)}
+.lv1{background:var(--warn);color:var(--ink)} .lv2{background:var(--fire)} .lv3{background:var(--bad)}
+.st{font-size:12px;padding:2px 6px;border:2px solid var(--ink)}
+.st.open{background:var(--bad);color:var(--paper)} .st.accepted{background:var(--gold)} .st.done{background:var(--grass)}
+.empty{color:var(--mute);text-align:center;padding:16px 8px}
+label{display:grid;gap:4px;font-size:14px;color:var(--mute)}
+input,select,textarea{background:var(--paper);color:var(--ink);border:0;padding:10px;
+  box-shadow:0 -3px 0 0 var(--ink),0 3px 0 0 var(--ink),-3px 0 0 0 var(--ink),3px 0 0 0 var(--ink);margin:3px;width:calc(100% - 6px)}
+input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px dashed var(--fire-hi);outline-offset:4px}
+form{display:grid;gap:10px}
+.levels{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.levels input{position:absolute;opacity:0;pointer-events:none}
+.levels label{cursor:pointer;text-align:center;padding:8px 4px;background:var(--sky-2);color:var(--paper);border:3px solid var(--ink)}
+.levels input:checked + span{color:var(--fire-hi)}
+.levels label:has(input:checked){background:var(--temple)}
+.coupon{font-family:var(--f-latin);font-size:14px;letter-spacing:.1em;background:var(--ink);color:var(--fire-hi);padding:8px;text-align:center}
+.credits{font-size:12px;color:var(--mute);text-align:center;margin-top:18px;line-height:1.8}
+
+/* ===== 開場畫面 ===== */
+#onboard{position:fixed;inset:0;z-index:50;background:var(--sky);display:flex;flex-direction:column;overflow:auto;
+  padding:calc(env(safe-area-inset-top,0px) + 16px) 16px calc(env(safe-area-inset-bottom,0px) + 16px)}
+#scene{width:100%;max-width:560px;margin:0 auto;aspect-ratio:16/7;image-rendering:pixelated;display:block}
+.ob-body{max-width:560px;margin:0 auto;width:100%;display:grid;gap:12px}
+.ob-title{font-size:28px;text-align:center;margin:8px 0 0;text-shadow:3px 3px 0 var(--ink);letter-spacing:.12em}
+.ob-sub{font-family:var(--f-latin);font-size:10px;text-align:center;color:var(--fire-hi);margin:0}
+.perm{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;padding:10px 12px}
+.perm canvas{width:32px;height:32px;image-rendering:pixelated}
+.perm p{margin:0;font-size:13px;color:#5b4a3a}
+.perm strong{font-size:16px}
+.perm .ok{font-family:var(--f-latin);font-size:10px;color:var(--grass-dk)}
+.guide{font-size:13px;padding:10px 12px}
+.guide ol{margin:6px 0 0;padding-left:20px;display:grid;gap:8px}
+.guide .en{font-family:var(--f-latin);font-size:9px;color:var(--temple)}
+.guide .path{color:#6b5a48;font-size:12px}
+
+/* ===== Toast / 離線 ===== */
+#toast{position:fixed;left:16px;right:16px;top:calc(env(safe-area-inset-top,0px) + 64px);z-index:60;display:grid;gap:8px;pointer-events:none}
+#toast .px{padding:10px 12px;font-size:14px;animation:pop .25s steps(3)}
+#offline{position:absolute;left:0;right:0;bottom:0;z-index:4;background:var(--bad);color:var(--paper);text-align:center;font-size:13px;padding:4px;border-top:3px solid var(--ink)}
+@keyframes pop{from{transform:scale(.6)}to{transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+@media (min-width:900px){
+  .sheet{left:auto;right:16px;bottom:16px;top:16px;width:420px;max-height:none;border:4px solid var(--ink)}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>奧客互助協會</h1>
+    <div class="chips">
+      <span class="chip" id="chipGps">定位</span>
+      <span class="chip" id="chipNotif">通知</span>
+      <span class="chip" id="chipNet">連線</span>
+    </div>
+  </header>
+
+  <main id="stage" aria-label="附近 500 公尺地圖">
+    <div id="gmap" hidden></div>
+    <canvas id="radar" aria-label="點陣雷達地圖"></canvas>
+    <div class="hud">
+      <span class="tag">範圍 <b id="hudRange">500M</b></span>
+      <span class="tag">求救中 <b id="hudOpen">0</b></span>
+      <span class="tag" id="hudMode">點陣雷達</span>
+    </div>
+    <button class="btn ghost" id="recenter" type="button" aria-label="回到我的位置">◎ 回到我</button>
+    <div id="offline" hidden>離線中：顯示上次的資料，你發的求救會在恢復連線後自動送出</div>
+
+    <!-- 任務列表 -->
+    <section class="sheet" id="sheetQuest" hidden>
+      <h2>附近任務 <button class="btn ghost close" type="button" data-close>關閉</button></h2>
+      <div class="list" id="questList"></div>
+    </section>
+
+    <!-- 店員求救 -->
+    <section class="sheet" id="sheetSos" hidden>
+      <h2>店員求救 <button class="btn ghost close" type="button" data-close>關閉</button></h2>
+      <form id="sosForm">
+        <label for="fStore">店名
+          <input id="fStore" name="store" required maxlength="30" placeholder="例：金茂宜蘆洲店" autocomplete="organization">
+        </label>
+        <div>
+          <label>奧客等級</label>
+          <div class="levels">
+            <label><input type="radio" name="level" value="1" id="lv1" checked><span>Lv1 碎念</span></label>
+            <label><input type="radio" name="level" value="2" id="lv2"><span>Lv2 大聲</span></label>
+            <label><input type="radio" name="level" value="3" id="lv3"><span>Lv3 失控</span></label>
+          </div>
+        </div>
+        <label for="fDesc">狀況說明
+          <textarea id="fDesc" name="desc" rows="2" maxlength="80" placeholder="例：客人堅持要用過期券，排隊卡住"></textarea>
+        </label>
+        <label for="fReward">勇者獎勵
+          <input id="fReward" name="reward" required maxlength="40" placeholder="例：免費大杯飲料一杯">
+        </label>
+        <button class="btn red wide" type="submit" id="sosSubmit">發出求救訊號</button>
+        <p style="font-size:12px;color:var(--mute);margin:0">會用你現在的位置當店家位置。遇到人身危險請直接撥打 110。</p>
+      </form>
+      <h2 style="margin-top:20px">我發出的求救</h2>
+      <div class="list" id="mySosList"></div>
+    </section>
+
+    <!-- 背包 -->
+    <section class="sheet" id="sheetBag" hidden>
+      <h2>背包 <button class="btn ghost close" type="button" data-close>關閉</button></h2>
+      <label for="fHero">勇者名稱
+        <input id="fHero" maxlength="16" placeholder="例：Popcorn" autocomplete="nickname">
+      </label>
+      <h2 style="margin-top:16px">獲得的獎勵</h2>
+      <div class="list" id="bagList"></div>
+      <div style="display:grid;gap:8px;margin-top:16px">
+        <button class="btn ghost wide" type="button" id="btnInstall" hidden>加到主畫面</button>
+        <button class="btn ghost wide" type="button" id="btnPerm">重新設定權限</button>
+        <button class="btn ghost wide" type="button" id="btnTestNotif">測試通知</button>
+      </div>
+      <p class="credits">創意發起人：Popcorn<br>程式美編設計：Kama<br><span id="ver"></span></p>
+    </section>
+  </main>
+
+  <nav class="tabs" role="tablist">
+    <button type="button" role="tab" aria-selected="true" data-tab="map"><canvas data-icon="map" width="7" height="7"></canvas>地圖</button>
+    <button type="button" role="tab" aria-selected="false" data-tab="quest"><canvas data-icon="fire" width="7" height="7"></canvas>任務<span class="badge" id="badge" hidden>0</span></button>
+    <button type="button" role="tab" aria-selected="false" data-tab="sos"><canvas data-icon="bell" width="7" height="7"></canvas>求救</button>
+    <button type="button" role="tab" aria-selected="false" data-tab="bag"><canvas data-icon="bag" width="7" height="7"></canvas>背包</button>
+  </nav>
+</div>
+
+<!-- 開場：權限 + 安裝 -->
+<div id="onboard" hidden>
+  <canvas id="scene" width="160" height="70" aria-hidden="true"></canvas>
+  <div class="ob-body">
+    <h2 class="ob-title">奧客互助協會</h2>
+    <p class="ob-sub">PRESS START</p>
+    <div class="px perm">
+      <canvas data-icon="pin" width="7" height="7"></canvas>
+      <div><strong>定位權限</strong><p>找出你身邊 500 公尺內正在求救的店家</p></div>
+      <span class="ok" id="okGps"></span>
+    </div>
+    <div class="px perm">
+      <canvas data-icon="bell" width="7" height="7"></canvas>
+      <div><strong>通知權限</strong><p>附近有店家求救時跳出提醒</p></div>
+      <span class="ok" id="okNotif"></span>
+    </div>
+    <div class="px guide" id="iosGuide" hidden>
+      <strong>iPhone 要先加到主畫面才能收通知</strong>
+      <ol>
+        <li><span class="en">SHARE</span><br>分享<br><span class="path">Safari 下方工具列 → 方框加向上箭頭</span></li>
+        <li><span class="en">ADD TO HOME SCREEN</span><br>加入主畫面<br><span class="path">分享選單往下滑 → 加入主畫面</span></li>
+        <li><span class="en">ADD</span><br>新增<br><span class="path">右上角「新增」→ 從主畫面圖示打開，再按下方開始</span></li>
+      </ol>
+    </div>
+    <button class="btn red wide" type="button" id="btnStart">開始冒險（允許權限）</button>
+    <button class="btn ghost wide" type="button" id="btnSkip">先逛逛</button>
+    <p class="credits">創意發起人：Popcorn ｜ 程式美編設計：Kama</p>
+  </div>
+</div>
+
+<div id="toast" aria-live="polite"></div>
+
+<script src="config.js"></script>
+<script>
+  // 有填 Firebase 設定才載入雲端同步套件
+  if (window.AOK_CONFIG && window.AOK_CONFIG.FIREBASE) {
+    document.write('<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"><\/script>' +
+                   '<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"><\/script>');
+  }
+</script>
+<script src="app.js"></script>
+</body>
+</html>

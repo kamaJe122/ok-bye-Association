@@ -1,0 +1,17 @@
+{
+  "name": "奧客互助協會",
+  "short_name": "奧客互助",
+  "description": "附近餐廳出現奧客？店員一鍵求救，路過的勇者接任務拿獎勵。",
+  "lang": "zh-Hant-TW",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#14306b",
+  "theme_color": "#14306b",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
