@@ -2,7 +2,7 @@
 <html lang="zh-Hant-TW">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <title>奧客互助協會</title>
 <meta name="description" content="附近餐廳出現奧客？店員一鍵求救，路過的勇者接任務拿獎勵。">
 <meta name="theme-color" content="#14306b">
@@ -227,6 +227,51 @@ form{display:grid;gap:10px}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 @media (min-width:900px){
   .sheet{left:auto;right:16px;bottom:16px;top:16px;width:420px;max-height:none;border:4px solid var(--ink)}
+}
+/* ===== 全裝置適應：不准橫向滑動、不准溢出 ===== */
+/* 元兇：隱藏的 Lv 單選鈕繼承了 input 的 100% 寬度，撐出面板 270px → 鎖成 1px 並關在 label 裡 */
+.levels label{position:relative;overflow:hidden}
+.levels input{position:absolute;left:0;top:0;width:1px!important;height:1px;margin:0;padding:0;box-shadow:none;opacity:0;pointer-events:none}
+.vh{width:1px!important;height:1px!important;margin:0!important;padding:0!important;box-shadow:none!important;left:0;top:0}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+html,body{max-width:100%;overflow-x:hidden;overscroll-behavior:none}
+#app{width:100%;height:100%;height:100dvh;max-width:100vw;overflow:hidden}
+#stage{min-height:0;min-width:0}
+/* 彈出面板：只能上下捲，鎖住左右 */
+.sheet{overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;-webkit-overflow-scrolling:touch;
+  padding-bottom:calc(24px + env(safe-area-inset-bottom,0px));box-sizing:border-box}
+.sheet>*,.sheet .row>*,.sheet .list>*,.ava-editor>*,.ava-groups>*,.logo-row>*,.role-pick>*,.levels>*,.profile>*,form>*{min-width:0}
+.role-pick{grid-template-columns:repeat(2,minmax(0,1fr))}
+.levels{grid-template-columns:repeat(3,minmax(0,1fr))}
+.btn{max-width:calc(100% - 8px);white-space:normal;overflow-wrap:anywhere}
+.name,.meta,.reward,.bubble,.wait,.note,.shop-line,.addr-saved,.ava-desc,label{overflow-wrap:anywhere}
+img,video{max-width:100%}
+/* iPhone：輸入框字小於 16px 會自動放大畫面，放大後就能左右滑 */
+input,select,textarea{font-size:max(16px,1em)}
+button,a,label,[role=tab],canvas{touch-action:manipulation}
+/* 開場畫面：小螢幕不重疊 */
+#onboard{overflow-x:hidden;overscroll-behavior:contain;touch-action:pan-y}
+#onboard>*{flex:none}
+.ob-body{min-width:0}
+/* 標題列：極窄螢幕時晶片可換行、標題縮字 */
+header{flex-wrap:wrap;row-gap:4px}
+header h1{font-size:clamp(16px,5vw,20px)}
+.chips{flex-wrap:wrap;justify-content:flex-end;min-width:0}
+@media (max-width:359px){
+  .chip{font-size:11px;padding:1px 4px}
+  .sheet{padding-left:12px;padding-right:12px}
+  .ava-editor{grid-template-columns:minmax(0,1fr)}
+  .ava-stage{position:static}
+  nav.tabs button{font-size:12px}
+}
+/* 平板直向：面板置中，不要拉成一長條 */
+@media (min-width:600px) and (max-width:899px){
+  .sheet{left:50%;right:auto;width:min(640px,100%);transform:translateX(-50%);border-left:4px solid var(--ink);border-right:4px solid var(--ink)}
+}
+/* 手機橫放：面板高度跟著變矮也能捲 */
+@media (max-height:500px) and (orientation:landscape){
+  .sheet{max-height:92%}
+  #recenter{bottom:8px}
 }
 </style>
 </head>
