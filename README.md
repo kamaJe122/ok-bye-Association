@@ -37,14 +37,14 @@
 4. 配額 → Maps JavaScript API → Map loads per day 設 **300**（保險絲，超過就停，不會被扣錢）
 5. 金鑰貼到 config.js 的 `GMAPS_KEY`
 
-沒填金鑰也能用：會顯示內建「點陣雷達」，離線時也自動切換成它。
+沒填金鑰也能用：會顯示免費的真實街道地圖（OpenStreetMap 資料，可拖拉、縮放），離線時自動切換成內建「點陣雷達」。
 
 ## 下一版（v2）：手機關掉 App 也收得到通知
 
 需要後端：Firebase Cloud Messaging（或 web-push + VAPID）＋ Cloud Function，
 在有新求救時，找出最後位置在 500 公尺內的使用者並推播。sw.js 已預留 `push` 事件。
 
-## 奧客外觀（v1.1.0）
+## 奧客外觀（v1.1.0，v1.2.0 起街道地圖也顯示）
 
 店員求救時可以畫出奧客的樣子，勇者在任務卡、雷達、通知裡都看得到。
 

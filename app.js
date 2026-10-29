@@ -4,7 +4,7 @@
 (() => {
 "use strict";
 const CFG = Object.assign({ GMAPS_KEY: "", FIREBASE: null, RADIUS_M: 500, SOS_EXPIRE_MIN: 60, DEMO_SEED: true }, window.AOK_CONFIG || {});
-const VERSION = "v1.1.0";
+const VERSION = "v1.2.0";
 const AV = window.AokAvatar;
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -102,7 +102,8 @@ const S = {
   list: [],
   seen: new Set(store.get("seen", [])),
   focus: null,
-  gmap: null, gReady: false, gMarkers: {}, gUser: null, gCircle: null
+  gmap: null, gReady: false, gMarkers: {}, gUser: null, gCircle: null,
+  lmap: null, lReady: false, lMarkers: {}, lUser: null, lCircle: null
 };
 const alive = (s) => Date.now() - s.createdAt < CFG.SOS_EXPIRE_MIN * 60000 || s.status === "done";
 function nearby() {
@@ -301,16 +302,77 @@ function heroURL() {
   HERO.forEach((row, j) => [...row].forEach((ch, i) => { if (PAL[ch]) { g.fillStyle = PAL[ch]; g.fillRect(i * 4, j * 4, 4, 4); } }));
   return c.toDataURL();
 }
+// 地圖標記：火焰（或圖釘）＋奧客小人並排
+const iconCache = new Map();
+function markerIcon(s) {
+  const name = s.status === "open" ? "fire" : "pin", px = s.status === "open" ? 4 + s.level : 4, sz = 7 * px;
+  const key = name + px + (s.status === "open" && s.look ? JSON.stringify(AV.normalize(s.look)) : "");
+  if (iconCache.has(key)) return iconCache.get(key);
+  const av = s.status === "open" && s.look ? AV.sprite(s.look, 2) : null;
+  const w = sz + (av ? av.width + 2 : 0), h = Math.max(sz, av ? av.height : 0);
+  const c = document.createElement("canvas"); c.width = w; c.height = h;
+  const g = c.getContext("2d"); g.imageSmoothingEnabled = false;
+  ICONS[name].forEach((row, j) => [...row].forEach((ch, i) => { if (PAL[ch]) { g.fillStyle = PAL[ch]; g.fillRect(i * px, h - sz + j * px, px, px); } }));
+  if (av) g.drawImage(av, sz + 2, h - av.height);
+  const out = { key, url: c.toDataURL(), w, h, ax: sz / 2, ay: h };
+  iconCache.set(key, out);
+  return out;
+}
 let gLoading = false;
 function loadGoogleMaps() {
-  if (!CFG.GMAPS_KEY || S.gReady || gLoading || !navigator.onLine) return;
+  if (!CFG.GMAPS_KEY) return loadLeaflet();
+  if (S.gReady || gLoading || !navigator.onLine) return;
   gLoading = true;
   window.__aokGmaps = () => { gLoading = false; S.gReady = true; initGmap(); };
-  window.gm_authFailure = () => { toast("Google 地圖金鑰無效，改用點陣雷達"); useRadar(); };
+  window.gm_authFailure = () => { toast("Google 地圖金鑰無效，改用免費地圖"); S.gReady = false; CFG.GMAPS_KEY = ""; loadLeaflet(); };
   const s = document.createElement("script");
   s.src = "https://maps.googleapis.com/maps/api/js?key=" + encodeURIComponent(CFG.GMAPS_KEY) + "&callback=__aokGmaps&v=weekly&language=zh-TW&region=TW";
   s.async = true; s.onerror = () => { gLoading = false; useRadar(); };
   document.head.appendChild(s);
+}
+
+/* ---------- 免費真實地圖（沒填 Google 金鑰時：Leaflet + OpenStreetMap 資料） ---------- */
+let lLoading = false;
+function loadLeaflet() {
+  if (S.lReady || lLoading || !navigator.onLine) return;
+  lLoading = true;
+  const css = document.createElement("link");
+  css.rel = "stylesheet"; css.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+  document.head.appendChild(css);
+  const s = document.createElement("script");
+  s.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+  s.async = true;
+  s.onload = () => { lLoading = false; S.lReady = true; initLmap(); };
+  s.onerror = () => { lLoading = false; useRadar(); };
+  document.head.appendChild(s);
+}
+function initLmap() {
+  if (!S.pos || S.lmap) return;
+  $("#gmap").hidden = false; radar.hidden = true; $("#hudMode").textContent = "街道地圖";
+  S.lmap = L.map($("#gmap"), { zoomControl: false, attributionControl: true }).setView([S.pos.lat, S.pos.lng], 16);
+  L.control.zoom({ position: "bottomleft" }).addTo(S.lmap);
+  L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+    maxZoom: 19, subdomains: "abcd",
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+  }).addTo(S.lmap);
+  S.lCircle = L.circle([S.pos.lat, S.pos.lng], { radius: CFG.RADIUS_M, color: "#ffd23f", weight: 3, fillColor: "#ffd23f", fillOpacity: 0.06, interactive: false }).addTo(S.lmap);
+  S.lUser = L.marker([S.pos.lat, S.pos.lng], { icon: L.icon({ iconUrl: heroURL(), iconSize: [28, 28], iconAnchor: [14, 14] }), zIndexOffset: 1000, interactive: false }).addTo(S.lmap);
+  renderLmap();
+}
+function renderLmap() {
+  if (S.lReady && !S.lmap && S.pos) return initLmap();
+  if (!S.lmap || !S.pos) return;
+  S.lUser.setLatLng([S.pos.lat, S.pos.lng]); S.lCircle.setLatLng([S.pos.lat, S.pos.lng]);
+  const keep = new Set();
+  nearby().forEach((s) => {
+    keep.add(s.id);
+    const ic = markerIcon(s);
+    let m = S.lMarkers[s.id];
+    if (!m) { m = L.marker([s.lat, s.lng], { title: s.store }).addTo(S.lmap); m.on("click", () => openCard(s.id)); S.lMarkers[s.id] = m; }
+    if (m.__k !== ic.key) { m.setIcon(L.icon({ iconUrl: ic.url, iconSize: [ic.w, ic.h], iconAnchor: [ic.ax, ic.ay], className: "px-marker" })); m.__k = ic.key; }
+    m.setLatLng([s.lat, s.lng]);
+  });
+  Object.keys(S.lMarkers).forEach((id) => { if (!keep.has(id)) { S.lMarkers[id].remove(); delete S.lMarkers[id]; } });
 }
 function useRadar() { $("#gmap").hidden = true; radar.hidden = false; $("#hudMode").textContent = "點陣雷達"; sizeRadar(); }
 function initGmap() {
@@ -330,17 +392,17 @@ function renderGmap() {
   const keep = new Set();
   nearby().forEach((s) => {
     keep.add(s.id);
-    const name = s.status === "open" ? "fire" : "pin", px = s.status === "open" ? 4 + s.level : 4, sz = 7 * px;
-    const key = name + px;
+    const ic = markerIcon(s);
     let m = S.gMarkers[s.id];
     if (!m) { m = new google.maps.Marker({ map: S.gmap, title: s.store }); m.addListener("click", () => openCard(s.id)); S.gMarkers[s.id] = m; }
-    if (m.__k !== key) { m.setIcon({ url: iconURL(name, px), scaledSize: new google.maps.Size(sz, sz), anchor: new google.maps.Point(sz / 2, sz) }); m.__k = key; }
+    if (m.__k !== ic.key) { m.setIcon({ url: ic.url, scaledSize: new google.maps.Size(ic.w, ic.h), anchor: new google.maps.Point(ic.ax, ic.ay) }); m.__k = ic.key; }
     m.setPosition({ lat: s.lat, lng: s.lng });
   });
   Object.keys(S.gMarkers).forEach((id) => { if (!keep.has(id)) { S.gMarkers[id].setMap(null); delete S.gMarkers[id]; } });
 }
 $("#recenter").addEventListener("click", () => {
   if (S.gmap && S.pos) { S.gmap.panTo(S.pos); S.gmap.setZoom(16); }
+  else if (S.lmap && S.pos) S.lmap.setView([S.pos.lat, S.pos.lng], 16);
   else if (!S.pos) startGeo();
   toast(S.pos ? "已回到你的位置（半徑 " + CFG.RADIUS_M + " 公尺）" : "正在取得定位…", 1600);
 });
@@ -384,7 +446,7 @@ function render() {
     <div class="reward">${esc(s.reward)}</div><div class="coupon">${esc(s.code)}</div><div class="meta">出示此代碼給店員兌換</div></article>`).join("")
     || `<p class="empty">背包空空的，去接個任務吧。</p>`;
   $$("canvas[data-look]").forEach((c) => { try { AV.draw(c, JSON.parse(c.dataset.look), 3); } catch (_) {} });
-  renderGmap();
+  renderGmap(); renderLmap();
 }
 document.addEventListener("click", async (e) => {
   const b = e.target.closest("[data-act]"); if (!b) return;
