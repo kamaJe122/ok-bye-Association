@@ -4,7 +4,8 @@
 (() => {
 "use strict";
 const CFG = Object.assign({ GMAPS_KEY: "", FIREBASE: null, RADIUS_M: 500, SOS_EXPIRE_MIN: 60, DEMO_SEED: true }, window.AOK_CONFIG || {});
-const VERSION = "v1.0.0";
+const VERSION = "v1.1.0";
+const AV = window.AokAvatar;
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 
@@ -165,9 +166,10 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
 }
 async function notify(s) {
   beep();
-  toast("附近求救！" + s.store + "（" + LV[s.level] + "）" + fmtDist(distM(S.pos, s)));
+  const who = s.look ? "\n奧客外觀：" + AV.describe(s.look) : "";
+  toast("附近求救！" + s.store + "（" + LV[s.level] + "）" + fmtDist(distM(S.pos, s)) + who, 4200);
   if (!(notifSupported && Notification.permission === "granted")) return;
-  const opt = { body: s.store + "・" + LV[s.level] + "・獎勵：" + s.reward, icon: "icons/icon-192.png", badge: "icons/icon-192.png",
+  const opt = { body: s.store + "・" + LV[s.level] + "・獎勵：" + s.reward + who, icon: "icons/icon-192.png", badge: "icons/icon-192.png",
     tag: "sos-" + s.id, data: { id: s.id }, vibrate: [120, 60, 120, 60, 240] };
   try {
     const reg = swReg || (await navigator.serviceWorker.ready);
@@ -180,11 +182,11 @@ function seedDemo() {
   if (DB.mode !== "demo" || !CFG.DEMO_SEED || store.get("seeded", false) || !S.pos) return;
   const now = Date.now();
   [
-    { n: 140, e: 60, store: "（示範）巷口雞排", level: 2, desc: "客人說雞排太大塊要退錢", reward: "雞排加大一次" },
-    { n: -90, e: 310, store: "（示範）轉角咖啡", level: 1, desc: "要求插座位置但已客滿，持續碎念", reward: "美式咖啡一杯" },
-    { n: -330, e: -260, store: "（示範）深夜拉麵", level: 3, desc: "酒後大聲叫囂，需要有人在旁陪同等待", reward: "拉麵免費一碗＋溏心蛋" }
+    { n: 140, e: 60, store: "（示範）巷口雞排", level: 2, desc: "客人說雞排太大塊要退錢", reward: "雞排加大一次", look: { gender: "m", age: "parent", hairColor: "black", hairLen: "short", topLen: "short", topColor: "white", bottom: "shorts", bottomColor: "khaki", shoes: "slipper", shoeColor: "blue" } },
+    { n: -90, e: 310, store: "（示範）轉角咖啡", level: 1, desc: "要求插座位置但已客滿，持續碎念", reward: "美式咖啡一杯", look: { gender: "f", age: "office", hairColor: "brown", hairLen: "long", topLen: "long", topColor: "black", bottom: "skirt", bottomColor: "gray", shoes: "heels", shoeColor: "red" } },
+    { n: -330, e: -260, store: "（示範）深夜拉麵", level: 3, desc: "酒後大聲叫囂，需要有人在旁陪同等待", reward: "拉麵免費一碗＋溏心蛋", look: { gender: "m", age: "elder", hairColor: "silver", hairLen: "curly", topLen: "long", topColor: "green", bottom: "pants", bottomColor: "denim", shoes: "sneaker", shoeColor: "brown" } }
   ].forEach((d, i) => (S.seen.add("demo" + i), DB.put(Object.assign({
-    id: "demo" + i, owner: "demo", level: d.level, store: d.store, desc: d.desc, reward: d.reward,
+    id: "demo" + i, owner: "demo", level: d.level, store: d.store, desc: d.desc, reward: d.reward, look: d.look,
     createdAt: now - i * 240000, status: "open"
   }, offset(S.pos, d.n, d.e)))));
   store.set("seeded", true);
@@ -252,6 +254,7 @@ function drawRadar(t = 0) {
     const flick = s.status === "open" && Math.floor(t / 180 + s.createdAt) % 2 ? 1 : 0;
     const size = 7 * px;
     if (s.status === "open") sprite("fire", x - size / 2, y - size + flick, px);
+    if (s.status === "open" && s.look) { const av = AV.sprite(s.look, 1); rg.drawImage(av, Math.round(x + size / 2 + 2), Math.round(y - av.height)); }
     else if (s.status === "accepted") sprite("pin", x - size / 2, y - size, px);
     else { rg.fillStyle = "#3fae5a"; rg.fillRect(x - 6, y - 12, 12, 12); }
     rg.font = "12px DotGothic16, monospace";
@@ -359,6 +362,7 @@ function card(s, ctx) {
   return `<article class="px card" id="sos-${esc(s.id)}">
     <div class="row"><span class="name">${esc(s.store)}</span><span class="lv lv${s.level}">${LV[s.level]}</span><span class="st ${s.status}">${ST[s.status]}</span></div>
     <div class="meta">${S.pos ? fmtDist(distM(S.pos, s)) + "・" : ""}${ago(s.createdAt)}${s.hero ? "・勇者：" + esc(s.hero) : ""}</div>
+    ${s.look ? `<div class="who"><canvas data-look="${esc(JSON.stringify(AV.normalize(s.look)))}"></canvas><div><span class="who-t">奧客外觀</span>${esc(AV.describe(s.look))}</div></div>` : ""}
     ${s.desc ? `<div>${esc(s.desc)}</div>` : ""}
     <div class="reward">獎勵：${esc(s.reward)}</div>
     ${s.status === "done" && (hero || mine) && s.code ? `<div class="coupon">${esc(s.code)}</div>` : ""}
@@ -379,6 +383,7 @@ function render() {
   $("#bagList").innerHTML = bag.map((s) => `<article class="px card"><div class="row"><span class="name">${esc(s.store)}</span></div>
     <div class="reward">${esc(s.reward)}</div><div class="coupon">${esc(s.code)}</div><div class="meta">出示此代碼給店員兌換</div></article>`).join("")
     || `<p class="empty">背包空空的，去接個任務吧。</p>`;
+  $$("canvas[data-look]").forEach((c) => { try { AV.draw(c, JSON.parse(c.dataset.look), 3); } catch (_) {} });
   renderGmap();
 }
 document.addEventListener("click", async (e) => {
@@ -417,6 +422,14 @@ setInterval(render, 30000);
 
 /* ---------- 求救表單 ---------- */
 $("#fStore").value = store.get("shop", "");
+$("#fReward").value = store.get("rewardDraft", "");
+$("#fDesc").value = store.get("descDraft", "");
+$("#fReward").addEventListener("input", (e) => store.set("rewardDraft", e.target.value));
+$("#fDesc").addEventListener("input", (e) => store.set("descDraft", e.target.value));
+const lookEditor = AV.mountEditor($("#lookEditor"), store.get("look", AV.DEFAULT), (l) => store.set("look", l));
+$("#lookOn").checked = store.get("lookOn", true);
+$("#lookEditor").hidden = !$("#lookOn").checked;
+$("#lookOn").addEventListener("change", (e) => { store.set("lookOn", e.target.checked); $("#lookEditor").hidden = !e.target.checked; });
 $("#sosForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   if (!S.pos) { toast("需要定位才能標出你的店，請允許定位"); await startGeo(); if (!S.pos) return; }
@@ -424,13 +437,14 @@ $("#sosForm").addEventListener("submit", async (e) => {
   const s = {
     id: uid(), owner: ME, store: String(f.get("store")).trim(), level: Number(f.get("level")) || 1,
     desc: String(f.get("desc") || "").trim(), reward: String(f.get("reward")).trim(),
-    lat: S.pos.lat, lng: S.pos.lng, createdAt: Date.now(), status: "open"
+    lat: S.pos.lat, lng: S.pos.lng, createdAt: Date.now(), status: "open",
+    look: $("#lookOn").checked ? AV.normalize(lookEditor.get()) : null
   };
   store.set("shop", s.store);
   await queueOrPut(s);
   beep([988, 784, 988, 784]);
   toast("求救訊號已發出！附近 " + CFG.RADIUS_M + " 公尺的勇者會收到");
-  $("#fDesc").value = "";
+  $("#fDesc").value = ""; store.set("descDraft", "");
 });
 
 /* ---------- 分頁 ---------- */

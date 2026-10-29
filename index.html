@@ -101,6 +101,32 @@ nav.tabs button:focus-visible{outline:3px dashed var(--fire-hi);outline-offset:-
 .st{font-size:12px;padding:2px 6px;border:2px solid var(--ink)}
 .st.open{background:var(--bad);color:var(--paper)} .st.accepted{background:var(--gold)} .st.done{background:var(--grass)}
 .empty{color:var(--mute);text-align:center;padding:16px 8px}
+/* ===== 奧客外觀 ===== */
+.who{display:flex;gap:10px;align-items:flex-end;background:var(--sky);color:var(--paper);padding:6px 10px;border:3px solid var(--ink);font-size:13px}
+.who canvas{image-rendering:pixelated;flex:none;width:54px;height:102px}
+.who div{min-width:0}
+.who-t{display:block;font-size:11px;color:var(--fire-hi)}
+.look-box{display:grid;gap:8px}
+.look-toggle{display:flex;gap:8px;align-items:center;color:var(--paper);font-size:15px;cursor:pointer}
+.look-toggle input{width:20px;height:20px;margin:0;box-shadow:none;accent-color:var(--temple)}
+.ava-editor{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;align-items:start}
+.ava-stage{position:sticky;top:0;display:grid;gap:6px;justify-items:center;background:var(--sky);border:3px solid var(--ink);padding:8px 4px;
+  background-image:linear-gradient(transparent 82%,var(--grass) 82%,var(--grass) 86%,var(--ground) 86%)}
+.ava-preview{image-rendering:pixelated;width:90px;height:170px;display:block}
+.ava-actions{display:grid;gap:2px}
+.ava-actions .btn{padding:4px 8px;font-size:13px}
+.ava-groups{display:grid;gap:8px;min-width:0}
+.ava-group{display:grid;gap:3px}
+.ava-label{font-size:12px;color:var(--mute)}
+.ava-opts{display:flex;flex-wrap:wrap;gap:6px}
+.ava-opt{appearance:none;cursor:pointer;border:3px solid var(--ink);background:var(--sky-2);color:var(--paper);padding:3px 8px;font-size:13px;font-family:var(--f-pixel)}
+.ava-opt[aria-checked="true"]{background:var(--temple);color:var(--paper)}
+.ava-sw{appearance:none;cursor:pointer;width:28px;height:28px;border:3px solid var(--ink);background:var(--sw);padding:0;position:relative}
+.ava-sw[aria-checked="true"]{outline:3px solid var(--fire-hi);outline-offset:1px}
+.ava-sw[aria-checked="true"]::after{content:"";position:absolute;inset:7px;background:var(--ink);opacity:.55}
+.ava-opt:focus-visible,.ava-sw:focus-visible{outline:3px dashed var(--fire-hi);outline-offset:3px}
+.ava-desc{grid-column:1/-1;margin:0;font-size:13px;color:var(--fire-hi);background:var(--ink);padding:6px 8px}
+.btn.sm{padding:5px 10px;font-size:13px}
 label{display:grid;gap:4px;font-size:14px;color:var(--mute)}
 input,select,textarea{background:var(--paper);color:var(--ink);border:0;padding:10px;
   box-shadow:0 -3px 0 0 var(--ink),0 3px 0 0 var(--ink),-3px 0 0 0 var(--ink),3px 0 0 0 var(--ink);margin:3px;width:calc(100% - 6px)}
@@ -133,7 +159,7 @@ form{display:grid;gap:10px}
 
 /* ===== Toast / 離線 ===== */
 #toast{position:fixed;left:16px;right:16px;top:calc(env(safe-area-inset-top,0px) + 64px);z-index:60;display:grid;gap:8px;pointer-events:none}
-#toast .px{padding:10px 12px;font-size:14px;animation:pop .25s steps(3)}
+#toast .px{padding:10px 12px;font-size:14px;white-space:pre-line;animation:pop .25s steps(3)}
 #offline{position:absolute;left:0;right:0;bottom:0;z-index:4;background:var(--bad);color:var(--paper);text-align:center;font-size:13px;padding:4px;border-top:3px solid var(--ink)}
 @keyframes pop{from{transform:scale(.6)}to{transform:scale(1)}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
@@ -184,6 +210,10 @@ form{display:grid;gap:10px}
             <label><input type="radio" name="level" value="2" id="lv2"><span>Lv2 大聲</span></label>
             <label><input type="radio" name="level" value="3" id="lv3"><span>Lv3 失控</span></label>
           </div>
+        </div>
+        <div class="look-box">
+          <label class="look-toggle" for="lookOn"><input type="checkbox" id="lookOn" checked> 畫出奧客的樣子（讓勇者認得出來）</label>
+          <div id="lookEditor" class="ava-editor"></div>
         </div>
         <label for="fDesc">狀況說明
           <textarea id="fDesc" name="desc" rows="2" maxlength="80" placeholder="例：客人堅持要用過期券，排隊卡住"></textarea>
@@ -256,6 +286,7 @@ form{display:grid;gap:10px}
 <div id="toast" aria-live="polite"></div>
 
 <script src="config.js"></script>
+<script src="avatar.js"></script>
 <script>
   // 有填 Firebase 設定才載入雲端同步套件
   if (window.AOK_CONFIG && window.AOK_CONFIG.FIREBASE) {
