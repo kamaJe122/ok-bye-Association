@@ -1,10 +1,10 @@
-/* 奧客互助協會 v1.0.0
+/* 奧客互助協會 v1.3.0
    創意發起人：Popcorn ｜ 程式美編設計：Kama
    純 HTML + JS，PWA：可離線、可加到主畫面（Android / iOS / 電腦） */
 (() => {
 "use strict";
 const CFG = Object.assign({ GMAPS_KEY: "", FIREBASE: null, RADIUS_M: 500, SOS_EXPIRE_MIN: 60, DEMO_SEED: true }, window.AOK_CONFIG || {});
-const VERSION = "v1.2.0";
+const VERSION = "v1.3.0";
 const AV = window.AokAvatar;
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -16,6 +16,10 @@ const store = {
 };
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 const ME = store.get("me", null) || (() => { const id = uid(); store.set("me", id); return id; })();
+// 同一支手機有兩個身分 id：店家、勇者。切換身分就能一個人測完整流程
+const SID = ME + "-s", HID = ME + "-h";
+const ss = { get(k) { try { return sessionStorage.getItem("aok_" + k); } catch (_) { return null; } }, set(k, v) { try { sessionStorage.setItem("aok_" + k, v); } catch (_) {} } };
+let ROLE = ss.get("role") || store.get("role", "hero");
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const M_PER_DEG = 111320;
 function distM(a, b) {
@@ -31,7 +35,7 @@ const fmtDist = (m) => m < 1000 ? Math.round(m) + " 公尺" : (m / 1000).toFixed
 const ago = (t) => { const m = Math.round((Date.now() - t) / 60000); return m < 1 ? "剛剛" : m + " 分鐘前"; };
 const code6 = () => "AOK-" + Math.random().toString(36).slice(2, 6).toUpperCase() + "-" + Math.floor(Math.random() * 90 + 10);
 const LV = { 1: "Lv1 碎念", 2: "Lv2 大聲", 3: "Lv3 失控" };
-const ST = { open: "求救中", accepted: "勇者前往中", done: "已解決" };
+const ST = { open: "求救中", accepted: "勇者前往中", reported: "待店家確認", done: "已解決" };
 
 /* ---------- 點陣圖示（7x7） ---------- */
 const PAL = { k: "#1a1020", r: "#d23a2a", y: "#f2c23b", o: "#ff7a1a", w: "#fff6dc", g: "#3fae5a", b: "#2d64c8", n: "#6b4a2b", l: "#ffd23f" };
@@ -40,7 +44,9 @@ const ICONS = {
   bell: ["...y...", "..yyy..", ".yyyyy.", ".yyyyy.", ".yyyyy.", "yyyyyyy", "...k..."],
   map: ["bbgbbgg", "bggbggb", "gggrggg", "ggrrrgg", "gggrggb", "bgg.ggb", "bbgbbbb"],
   bag: ["..nnn..", ".n...n.", "nnnnnnn", "nyyyyyn", "nyykyyn", "nyyyyyn", "nnnnnnn"],
-  pin: ["..rrr..", ".rrrrr.", ".rrwrr.", ".rrrrr.", "..rrr..", "...r...", "...r..."]
+  pin: ["..rrr..", ".rrrrr.", ".rrwrr.", ".rrrrr.", "..rrr..", "...r...", "...r..."],
+  shop: ["rrrrrrr", "ryryryr", "rrrrrrr", ".wwwww.", ".wbwkw.", ".wwwkw.", "nnnnnnn"],
+  hero: ["..www..", ".wkwkw.", "..www..", ".rrrrr.", "w.rrr.w", "..r.r..", ".kk.kk."]
 };
 function drawIcon(cv, name) {
   const g = cv.getContext("2d"), rows = ICONS[name]; if (!rows) return;
@@ -51,8 +57,10 @@ $$("canvas[data-icon]").forEach((c) => drawIcon(c, c.dataset.icon));
 
 /* ---------- Toast + 8-bit 音效 ---------- */
 function toast(msg, ms = 2800) {
+  const box = $("#toast");
+  while (box.children.length >= 2) box.firstElementChild.remove(); // 最多同時 2 則，不擋畫面
   const d = document.createElement("div"); d.className = "px"; d.textContent = msg;
-  $("#toast").appendChild(d); setTimeout(() => d.remove(), ms);
+  box.appendChild(d); setTimeout(() => d.remove(), ms);
 }
 let actx = null;
 function beep(seq = [660, 880, 990]) {
@@ -79,7 +87,10 @@ const DB = (() => {
       mode: "cloud",
       sub(f) { subs.push(f); f(store.get("cache", [])); },
       put(s) { return ref.child(s.id).set(s); },
-      patch(id, p) { return ref.child(id).update(p); }
+      patch(id, p) { return ref.child(id).update(p); },
+      claim(id, p) { // 搶單保護：同時兩個勇者按「接任務」只有一個成功
+        return ref.child(id).transaction((cur) => (cur && cur.status === "open" ? Object.assign(cur, p) : undefined)).then((r) => r.committed);
+      }
     };
   }
   // 示範模式：localStorage + BroadcastChannel（同一台裝置多個分頁會互相同步）
@@ -92,7 +103,12 @@ const DB = (() => {
     mode: "demo",
     sub(f) { subs.push(f); f(read()); },
     put(s) { write(read().filter((x) => x.id !== s.id).concat(s)); return Promise.resolve(); },
-    patch(id, p) { write(read().map((x) => x.id === id ? Object.assign({}, x, p) : x)); return Promise.resolve(); }
+    patch(id, p) { write(read().map((x) => x.id === id ? Object.assign({}, x, p) : x)); return Promise.resolve(); },
+    claim(id, p) {
+      const cur = read().find((x) => x.id === id);
+      if (!cur || cur.status !== "open") return Promise.resolve(false);
+      write(read().map((x) => x.id === id ? Object.assign({}, x, p) : x)); return Promise.resolve(true);
+    }
   };
 })();
 
@@ -110,7 +126,7 @@ function nearby() {
   if (!S.pos) return [];
   return S.list.filter(alive)
     .map((s) => Object.assign({ d: distM(S.pos, s) }, s))
-    .filter((s) => s.d <= CFG.RADIUS_M || s.owner === ME || s.heroId === ME)
+    .filter((s) => s.d <= CFG.RADIUS_M || s.owner === SID || s.heroId === HID)
     .sort((a, b) => (a.status === "open" ? 0 : 1) - (b.status === "open" ? 0 : 1) || a.d - b.d);
 }
 
@@ -165,17 +181,21 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
   navigator.serviceWorker.register("sw.js").then((r) => (swReg = r)).catch(() => {});
   navigator.serviceWorker.addEventListener("message", (e) => { if (e.data && e.data.type === "open-sos") openCard(e.data.id); });
 }
-async function notify(s) {
-  beep();
-  const who = s.look ? "\n奧客外觀：" + AV.describe(s.look) : "";
-  toast("附近求救！" + s.store + "（" + LV[s.level] + "）" + fmtDist(distM(S.pos, s)) + who, 4200);
+// 共用提醒：音效 + 畫面提示 + 系統通知
+async function push(title, body, id, seq) {
+  beep(seq);
+  toast(title + "\n" + body, 4200);
   if (!(notifSupported && Notification.permission === "granted")) return;
-  const opt = { body: s.store + "・" + LV[s.level] + "・獎勵：" + s.reward + who, icon: "icons/icon-192.png", badge: "icons/icon-192.png",
-    tag: "sos-" + s.id, data: { id: s.id }, vibrate: [120, 60, 120, 60, 240] };
+  const opt = { body, icon: "icons/icon-192.png", badge: "icons/icon-192.png", tag: "sos-" + id + "-" + title.length, data: { id }, vibrate: [120, 60, 120, 60, 240] };
   try {
     const reg = swReg || (await navigator.serviceWorker.ready);
-    await reg.showNotification("奧客出沒！" + fmtDist(distM(S.pos, s)) + "外需要勇者", opt);
-  } catch (_) { try { new Notification("奧客出沒！", opt); } catch (__) {} }
+    await reg.showNotification(title, opt);
+  } catch (_) { try { new Notification(title, opt); } catch (__) {} }
+}
+function notify(s) {
+  const who = s.look ? "\n奧客外觀：" + AV.describe(s.look) : "";
+  push("奧客出沒！" + (S.pos ? fmtDist(distM(S.pos, s)) + "外" : "") + "需要勇者",
+    s.store + "・" + LV[s.level] + "・獎勵：" + s.reward + who, s.id);
 }
 
 /* ---------- 示範資料 ---------- */
@@ -268,7 +288,9 @@ function drawRadar(t = 0) {
   sprite_hero(cx, cy);
 }
 function sprite_hero(cx, cy) {
-  const px = 4; HERO.forEach((row, j) => [...row].forEach((c, i) => { if (PAL[c]) { rg.fillStyle = PAL[c]; rg.fillRect(cx - 14 + i * px, cy - 14 + j * px, px, px); } }));
+  if (ROLE === "store") return sprite("shop", cx - 14, cy - 14, 4);
+  const av = AV.sprite(heroLookNow(), 1);
+  rg.drawImage(av, Math.round(cx - av.width / 2), Math.round(cy - av.height + 8));
 }
 radar.addEventListener("click", (e) => {
   const r = radar.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
@@ -407,83 +429,193 @@ $("#recenter").addEventListener("click", () => {
   toast(S.pos ? "已回到你的位置（半徑 " + CFG.RADIUS_M + " 公尺）" : "正在取得定位…", 1600);
 });
 
+/* ---------- 身分：店家 / 勇者 ---------- */
+const heroNick = () => (store.get("hero", "") || "").trim();
+const shopName = () => (store.get("shop", "") || "").trim();
+let heroEditor = null;
+const heroLookNow = () => (heroEditor ? heroEditor.get() : store.get("heroLook", AV.DEFAULT));
+function setRole(r, quiet) {
+  ROLE = r === "store" ? "store" : "hero";
+  store.set("role", ROLE); ss.set("role", ROLE);
+  applyRole();
+  if (!quiet) { beep(ROLE === "store" ? [784, 659] : [659, 784]); toast(ROLE === "store" ? "切換成店家：可以發求救、確認勇者完成任務" : "切換成勇者：可以接附近的任務"); }
+}
+function applyRole() {
+  document.body.dataset.role = ROLE;
+  const chip = $("#chipRole");
+  chip.textContent = ROLE === "store" ? "店家" : "勇者";
+  chip.classList.toggle("store", ROLE === "store");
+  $$(".role-btn").forEach((b) => b.setAttribute("aria-checked", String(b.dataset.role === ROLE)));
+  $$("nav.tabs button[data-for]").forEach((b) => (b.hidden = b.dataset.for !== ROLE));
+  $("#storeProfile").hidden = ROLE !== "store";
+  $("#heroProfile").hidden = ROLE !== "hero";
+  const cur = $$("nav.tabs button").find((b) => b.getAttribute("aria-selected") === "true");
+  if (cur && cur.hidden) setTab("map");
+  renderShopLine();
+  render();
+}
+function renderShopLine() {
+  const n = shopName();
+  $("#shopLine").innerHTML = n
+    ? `店家：<b>${esc(n)}</b><button class="btn ghost sm" type="button" data-go="me">修改</button>`
+    : `還沒填店名<button class="btn red sm" type="button" data-go="me">去填店名</button>`;
+}
+$("#chipRole").addEventListener("click", () => setRole(ROLE === "store" ? "hero" : "store"));
+document.addEventListener("click", (e) => {
+  const rb = e.target.closest(".role-btn"); if (rb) setRole(rb.dataset.role, !!e.target.closest("#onboard"));
+  const go = e.target.closest("[data-go]"); if (go) setTab(go.dataset.go);
+});
+
 /* ---------- 卡片與清單 ---------- */
-function heroName() { return ($("#fHero").value || store.get("hero", "") || "無名勇者").trim(); }
+const QUICK = ["客人已經冷靜下來了", "客人已離開", "已協助排隊動線", "陪店員一起處理完畢"];
+const drafts = store.get("drafts", {});
+const saveDrafts = () => store.set("drafts", drafts);
+const lookBox = (look, cls, title, extra) => `<div class="who ${cls}"><canvas data-look="${esc(JSON.stringify(AV.normalize(look)))}"></canvas><div><span class="who-t">${title}</span>${extra || ""}${esc(AV.describe(look))}</div></div>`;
+function heroBox(s) {
+  const nick = s.heroNick || s.hero || "無名勇者";
+  return s.heroLook ? lookBox(s.heroLook, "hero", "勇者", `<b>${esc(nick)}</b><br>`) : `<div class="who hero"><div><span class="who-t">勇者</span><b>${esc(nick)}</b></div></div>`;
+}
 function card(s, ctx) {
-  const mine = s.owner === ME, hero = s.heroId === ME;
-  let act = "";
+  const mineShop = s.owner === SID, mineHero = s.heroId === HID, id = esc(s.id);
+  let body = "", act = "";
+  const nav = S.pos && s.status !== "done" && ctx === "quest" ? `<a class="btn ghost" href="https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lng}&travelmode=walking" target="_blank" rel="noopener">導航</a>` : "";
+  const heroMsg = s.heroMsg ? `<div class="bubble"><span class="from">勇者 ${esc(s.heroNick || "")} 說</span>${esc(s.heroMsg)}</div>` : "";
+  const storeMsg = s.storeMsg ? `<div class="bubble store"><span class="from">店家 ${esc(s.store)} 說</span>${esc(s.storeMsg)}</div>` : "";
+
   if (ctx === "quest") {
-    if (s.status === "open" && !mine) act = `<button class="btn red" data-act="accept" data-id="${esc(s.id)}">接任務</button>`;
-    if (s.status === "accepted" && hero) act = `<button class="btn ghost" data-act="giveup" data-id="${esc(s.id)}">放棄任務</button>`;
+    if (s.status === "open") act = `<button class="btn red" data-act="accept" data-id="${id}">接任務</button>`;
+    else if (!mineHero) body = `<div class="wait">已有勇者 ${esc(s.heroNick || s.hero || "")} 接下這個任務</div>`;
+    else if (s.status === "accepted") {
+      const d = drafts["m" + s.id] || "";
+      body = `${storeMsg}<div class="report"><b>到店幫忙完了嗎？回報給店家</b>
+        <div class="quick">${QUICK.map((q) => `<button type="button" class="ava-opt" data-quick="m${id}">${q}</button>`).join("")}</div>
+        <textarea id="msg-${id}" data-draft="m${id}" rows="2" maxlength="80" placeholder="跟店家說明處理狀況">${esc(d)}</textarea>
+        <button class="btn green wide" type="button" data-act="report" data-id="${id}">回報任務完成</button></div>`;
+      act = `<button class="btn ghost" data-act="giveup" data-id="${id}">放棄任務</button>`;
+    } else if (s.status === "reported") body = `${heroMsg}<div class="wait">已回報，等店家按「確認完成」…</div>`;
+    else if (s.status === "done") body = `${storeMsg}${s.code ? `<div class="coupon">${esc(s.code)}</div><div class="meta">獎勵已放進背包</div>` : ""}`;
   }
   if (ctx === "mine") {
-    if (s.status === "accepted") act = `<button class="btn green" data-act="resolve" data-id="${esc(s.id)}">確認解決並發獎勵</button>`;
-    if (s.status === "open") act = `<button class="btn ghost" data-act="cancel" data-id="${esc(s.id)}">取消求救</button>`;
+    if (s.status === "open") { body = `<div class="wait">等待附近的勇者接任務…</div>`; act = `<button class="btn ghost" data-act="cancel" data-id="${id}">取消求救</button>`; }
+    if (s.status === "accepted") body = `${heroBox(s)}<div class="wait">勇者正在趕來，認明上面這個樣子</div>${storeMsg}`;
+    if (s.status === "reported") {
+      const d = drafts["r" + s.id] || "";
+      body = `${heroBox(s)}${heroMsg}<div class="report"><b>勇者回報完成，確認一下？</b>
+        <textarea id="reply-${id}" data-draft="r${id}" rows="2" maxlength="80" placeholder="回覆勇者（可不填）">${esc(d)}</textarea>
+        <div class="row"><button class="btn green" type="button" data-act="confirm" data-id="${id}">確認完成並發獎勵</button>
+        <button class="btn ghost" type="button" data-act="notyet" data-id="${id}">還沒解決</button></div></div>`;
+    }
+    if (s.status === "done") body = `${s.heroId ? heroBox(s) : ""}${s.code ? `<div class="meta">已發給勇者的兌換碼</div><div class="coupon">${esc(s.code)}</div>` : ""}`;
   }
-  const nav = S.pos ? `<a class="btn ghost" href="https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lng}&travelmode=walking" target="_blank" rel="noopener">導航</a>` : "";
-  return `<article class="px card" id="sos-${esc(s.id)}">
-    <div class="row"><span class="name">${esc(s.store)}</span><span class="lv lv${s.level}">${LV[s.level]}</span><span class="st ${s.status}">${ST[s.status]}</span></div>
-    <div class="meta">${S.pos ? fmtDist(distM(S.pos, s)) + "・" : ""}${ago(s.createdAt)}${s.hero ? "・勇者：" + esc(s.hero) : ""}</div>
-    ${s.look ? `<div class="who"><canvas data-look="${esc(JSON.stringify(AV.normalize(s.look)))}"></canvas><div><span class="who-t">奧客外觀</span>${esc(AV.describe(s.look))}</div></div>` : ""}
+  return `<article class="px card" id="sos-${id}">
+    <div class="row"><span class="name">${esc(s.store)}</span><span class="lv lv${s.level}">${LV[s.level]}</span><span class="st ${esc(s.status)}">${ST[s.status] || ""}</span></div>
+    <div class="meta">${S.pos ? fmtDist(distM(S.pos, s)) + "・" : ""}${ago(s.createdAt)}</div>
+    ${s.look && s.status !== "done" ? lookBox(s.look, "", "奧客外觀") : ""}
     ${s.desc ? `<div>${esc(s.desc)}</div>` : ""}
     <div class="reward">獎勵：${esc(s.reward)}</div>
-    ${s.status === "done" && (hero || mine) && s.code ? `<div class="coupon">${esc(s.code)}</div>` : ""}
-    <div class="row">${act}${s.status !== "done" ? nav : ""}</div>
+    ${body}
+    ${act || nav ? `<div class="row">${act}${nav}</div>` : ""}
   </article>`;
 }
 function render() {
   const near = nearby();
-  const open = near.filter((s) => s.status === "open" && s.owner !== ME);
+  // 示範模式：同一支手機可以用勇者身分接自己店的任務，方便一個人測完整流程
+  const others = (s) => DB.mode === "demo" || s.owner !== SID;
+  const open = near.filter((s) => s.status === "open" && others(s));
   $("#hudOpen").textContent = open.length;
   $("#hudRange").textContent = CFG.RADIUS_M + "M";
   $("#badge").hidden = !open.length; $("#badge").textContent = open.length;
-  $("#questList").innerHTML = near.filter((s) => s.owner !== ME).map((s) => card(s, "quest")).join("")
+  $("#questList").innerHTML = near.filter(others).map((s) => card(s, "quest")).join("")
     || `<p class="empty">方圓 ${CFG.RADIUS_M} 公尺內很和平，沒有奧客出沒。</p>`;
-  const mine = S.list.filter((s) => s.owner === ME && alive(s)).sort((a, b) => b.createdAt - a.createdAt);
+  const mine = S.list.filter((s) => s.owner === SID && alive(s)).sort((a, b) => (b.status === "reported") - (a.status === "reported") || b.createdAt - a.createdAt);
+  const toConfirm = mine.filter((s) => s.status === "reported").length;
+  $("#badgeSos").hidden = $("#badgeConfirm").hidden = !toConfirm;
+  $("#badgeSos").textContent = $("#badgeConfirm").textContent = toConfirm;
   $("#mySosList").innerHTML = mine.map((s) => card(s, "mine")).join("") || `<p class="empty">還沒有發出求救。</p>`;
-  const bag = S.list.filter((s) => s.heroId === ME && s.status === "done").sort((a, b) => b.doneAt - a.doneAt);
+  const bag = S.list.filter((s) => s.heroId === HID && s.status === "done" && s.code).sort((a, b) => b.doneAt - a.doneAt);
   $("#bagList").innerHTML = bag.map((s) => `<article class="px card"><div class="row"><span class="name">${esc(s.store)}</span></div>
     <div class="reward">${esc(s.reward)}</div><div class="coupon">${esc(s.code)}</div><div class="meta">出示此代碼給店員兌換</div></article>`).join("")
     || `<p class="empty">背包空空的，去接個任務吧。</p>`;
   $$("canvas[data-look]").forEach((c) => { try { AV.draw(c, JSON.parse(c.dataset.look), 3); } catch (_) {} });
   renderGmap(); renderLmap();
 }
+document.addEventListener("input", (e) => {
+  const t = e.target.closest("[data-draft]"); if (!t) return;
+  drafts[t.dataset.draft] = t.value; saveDrafts();
+});
+document.addEventListener("click", (e) => {
+  const q = e.target.closest("[data-quick]"); if (!q) return;
+  const ta = document.querySelector(`[data-draft="${q.dataset.quick}"]`); if (!ta) return;
+  ta.value = ta.value ? ta.value + "，" + q.textContent : q.textContent;
+  drafts[q.dataset.quick] = ta.value; saveDrafts();
+});
 document.addEventListener("click", async (e) => {
   const b = e.target.closest("[data-act]"); if (!b) return;
   const id = b.dataset.id, s = S.list.find((x) => x.id === id); if (!s) return;
-  if (b.dataset.act === "accept") {
-    if (s.status !== "open") return toast("這個任務已經有人接了");
-    await DB.patch(id, { status: "accepted", hero: heroName(), heroId: ME, acceptedAt: Date.now() });
-    beep([523, 659, 784, 1046]); toast("任務接受！到店後請店員按「確認解決」");
+  const act = b.dataset.act;
+  if (act === "accept") {
+    if (!heroNick()) { toast("先設定你的勇者綽號和長相，店家才認得你"); return setTab("me"); }
+    b.disabled = true;
+    const ok = await DB.claim(id, { status: "accepted", heroId: HID, heroNick: heroNick(), heroLook: AV.normalize(heroLookNow()),
+      acceptedAt: Date.now(), heroMsg: null, storeMsg: null });
+    if (!ok) { b.disabled = false; return toast("慢了一步，這個任務已經有人接了"); }
+    beep([523, 659, 784, 1046]); toast("任務接受！店家會看到你的綽號和長相。\n處理完記得按「回報任務完成」");
   }
-  if (b.dataset.act === "giveup") { await DB.patch(id, { status: "open", hero: null, heroId: null }); toast("已放棄任務"); }
-  if (b.dataset.act === "resolve") { await DB.patch(id, { status: "done", code: code6(), doneAt: Date.now() }); beep([784, 988, 1175, 1568]); toast("已發放獎勵代碼給勇者"); }
-  if (b.dataset.act === "cancel") { await DB.patch(id, { status: "done", reward: s.reward + "（已取消）", code: null, doneAt: Date.now() }); toast("已取消求救"); }
+  if (act === "giveup") { await DB.patch(id, { status: "open", heroId: null, heroNick: null, heroLook: null, heroMsg: null, storeMsg: null }); toast("已放棄任務"); }
+  if (act === "report") {
+    const msg = (drafts["m" + id] || "").trim() || "任務完成！";
+    await DB.patch(id, { status: "reported", heroMsg: msg, reportedAt: Date.now() });
+    delete drafts["m" + id]; saveDrafts();
+    beep([659, 784, 988]); toast("已回報給店家，等店家確認後就會拿到獎勵");
+  }
+  if (act === "confirm") {
+    const reply = (drafts["r" + id] || "").trim() || "感謝勇者幫忙！";
+    await DB.patch(id, { status: "done", code: code6(), doneAt: Date.now(), storeMsg: reply });
+    delete drafts["r" + id]; saveDrafts();
+    beep([784, 988, 1175, 1568]); toast("任務完成！獎勵兌換碼已發給勇者");
+  }
+  if (act === "notyet") {
+    const reply = (drafts["r" + id] || "").trim() || "還沒解決，請再幫忙一下";
+    await DB.patch(id, { status: "accepted", storeMsg: reply, storeMsgAt: Date.now() });
+    delete drafts["r" + id]; saveDrafts();
+    toast("已請勇者繼續幫忙");
+  }
+  if (act === "cancel") { await DB.patch(id, { status: "done", reward: s.reward + "（已取消）", code: null, doneAt: Date.now() }); toast("已取消求救"); }
 });
 
-/* ---------- 新求救偵測 → 通知 ---------- */
+/* ---------- 資料變化 → 提醒 ---------- */
 let firstLoad = true;
+const once = (key, fn) => { if (S.seen.has(key)) return; S.seen.add(key); if (!firstLoad) fn(); };
+const demoTimers = new Set();
 DB.sub((list) => {
   S.list = Array.isArray(list) ? list : [];
   S.list.forEach((s) => {
-    if (s.status === "open" && s.owner !== ME && !S.seen.has(s.id)) {
-      S.seen.add(s.id);
-      if (!firstLoad && S.pos && distM(S.pos, s) <= CFG.RADIUS_M) notify(s);
-    }
-    // 勇者：任務完成時提醒
-    if (s.heroId === ME && s.status === "done" && !S.seen.has("done" + s.id)) {
-      S.seen.add("done" + s.id); if (!firstLoad) { beep([784, 988, 1175, 1568]); toast("任務完成！獎勵已放進背包"); }
+    // 勇者：附近有新求救
+    if (s.status === "open" && s.owner !== SID) once(s.id, () => { if (ROLE === "hero" && S.pos && distM(S.pos, s) <= CFG.RADIUS_M) notify(s); });
+    // 店家：有勇者接了我的求救、勇者回報完成
+    if (s.owner === SID && s.heroId && s.status !== "open") once("acc:" + s.id + ":" + s.heroId, () =>
+      push("勇者 " + (s.heroNick || "") + " 接下任務！", s.store + "：勇者正在趕來" + (s.heroLook ? "\n勇者外觀：" + AV.describe(s.heroLook) : ""), s.id, [523, 659, 784]));
+    if (s.owner === SID && s.status === "reported") once("rep:" + s.id + ":" + s.reportedAt, () =>
+      push("勇者回報任務完成", (s.heroNick || "勇者") + "：" + (s.heroMsg || "") + "\n請到「求救」按確認完成", s.id, [659, 784, 988]));
+    // 勇者：店家確認完成、或店家說還沒好
+    if (s.heroId === HID && s.status === "done") once("done:" + s.id, () =>
+      push("任務完成！獲得獎勵", s.store + "：" + (s.storeMsg || "") + "\n獎勵：" + s.reward, s.id, [784, 988, 1175, 1568]));
+    if (s.heroId === HID && s.status === "accepted" && s.storeMsgAt) once("back:" + s.id + ":" + s.storeMsgAt, () =>
+      push("店家說還沒解決", s.store + "：" + (s.storeMsg || ""), s.id, [988, 784]));
+    // 示範模式：示範店家 3 秒後自動確認，方便一個人測試
+    if (DB.mode === "demo" && s.owner === "demo" && s.status === "reported" && !demoTimers.has(s.id)) {
+      demoTimers.add(s.id);
+      setTimeout(() => { demoTimers.delete(s.id); DB.patch(s.id, { status: "done", code: code6(), doneAt: Date.now(), storeMsg: "（示範店家）謝謝你，客人已經冷靜了！" }); }, 3000);
     }
   });
-  store.set("seen", [...S.seen].slice(-300));
+  store.set("seen", [...S.seen].slice(-500));
   firstLoad = false;
   store.set("cache", S.list);
   render();
 });
 setInterval(render, 30000);
 
-/* ---------- 求救表單 ---------- */
-$("#fStore").value = store.get("shop", "");
+/* ---------- 求救表單（店家） ---------- */
 $("#fReward").value = store.get("rewardDraft", "");
 $("#fDesc").value = store.get("descDraft", "");
 $("#fReward").addEventListener("input", (e) => store.set("rewardDraft", e.target.value));
@@ -494,15 +626,15 @@ $("#lookEditor").hidden = !$("#lookOn").checked;
 $("#lookOn").addEventListener("change", (e) => { store.set("lookOn", e.target.checked); $("#lookEditor").hidden = !e.target.checked; });
 $("#sosForm").addEventListener("submit", async (e) => {
   e.preventDefault();
+  if (!shopName()) { toast("先到「我的」填店名，勇者才知道是哪一家"); return setTab("me"); }
   if (!S.pos) { toast("需要定位才能標出你的店，請允許定位"); await startGeo(); if (!S.pos) return; }
   const f = new FormData(e.target);
   const s = {
-    id: uid(), owner: ME, store: String(f.get("store")).trim(), level: Number(f.get("level")) || 1,
+    id: uid(), owner: SID, store: shopName(), level: Number(f.get("level")) || 1,
     desc: String(f.get("desc") || "").trim(), reward: String(f.get("reward")).trim(),
     lat: S.pos.lat, lng: S.pos.lng, createdAt: Date.now(), status: "open",
     look: $("#lookOn").checked ? AV.normalize(lookEditor.get()) : null
   };
-  store.set("shop", s.store);
   await queueOrPut(s);
   beep([988, 784, 988, 784]);
   toast("求救訊號已發出！附近 " + CFG.RADIUS_M + " 公尺的勇者會收到");
@@ -510,7 +642,7 @@ $("#sosForm").addEventListener("submit", async (e) => {
 });
 
 /* ---------- 分頁 ---------- */
-const SHEETS = { quest: "#sheetQuest", sos: "#sheetSos", bag: "#sheetBag" };
+const SHEETS = { quest: "#sheetQuest", sos: "#sheetSos", bag: "#sheetBag", me: "#sheetMe" };
 function setTab(name) {
   $$("nav.tabs button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === name)));
   Object.entries(SHEETS).forEach(([k, sel]) => ($(sel).hidden = k !== name));
@@ -518,20 +650,28 @@ function setTab(name) {
 $$("nav.tabs button").forEach((b) => b.addEventListener("click", () => setTab(b.dataset.tab)));
 $$("[data-close]").forEach((b) => b.addEventListener("click", () => setTab("map")));
 function openCard(id) {
-  if (!id) return; setTab("quest"); render();
+  if (!id) return;
+  const s = S.list.find((x) => x.id === id);
+  const rel = s && s.owner === SID ? "store" : "hero";
+  if (ROLE !== rel) setRole(rel, true);
+  setTab(rel === "store" ? "sos" : "quest"); render();
   const el = document.getElementById("sos-" + id) || null;
   if (el) { el.scrollIntoView({ behavior: "smooth", block: "center" }); el.animate([{ transform: "scale(1.04)" }, { transform: "scale(1)" }], { duration: 400, easing: "steps(4)" }); }
 }
 
-/* ---------- 背包設定 ---------- */
-$("#fHero").value = store.get("hero", "");
-$("#fHero").addEventListener("change", (e) => store.set("hero", e.target.value.trim()));
+/* ---------- 我的：個人檔案與設定 ---------- */
+$("#fHero").value = heroNick();
+$("#fHero").addEventListener("input", (e) => store.set("hero", e.target.value.trim()));
+$("#fShop").value = shopName();
+$("#fShop").addEventListener("input", (e) => { store.set("shop", e.target.value.trim()); renderShopLine(); });
+heroEditor = AV.mountEditor($("#heroLookEditor"), store.get("heroLook", AV.DEFAULT), (l) => store.set("heroLook", l));
 $("#btnPerm").addEventListener("click", () => showOnboard(true));
 $("#btnTestNotif").addEventListener("click", async () => {
   if (!(await askNotif())) return toast("通知尚未開啟");
   notify({ id: "test", store: "測試店家", level: 2, reward: "測試獎勵", lat: S.pos ? S.pos.lat : 25, lng: S.pos ? S.pos.lng : 121.5 });
 });
 $("#ver").textContent = VERSION + "・" + (DB.mode === "cloud" ? "雲端同步" : "示範模式");
+applyRole();
 
 /* ---------- 安裝到主畫面 ---------- */
 let deferredPrompt = null;
@@ -583,7 +723,9 @@ $("#btnStart").addEventListener("click", async () => {
   store.set("onboarded", true);
   $("#onboard").hidden = true;
   sizeRadar(); loadGoogleMaps(); render();
-  if (!okGeo) toast("沒有定位也能用，但看不到附近任務");
+  if (ROLE === "store" && !shopName()) { setTab("me"); toast("先填你的店名"); }
+  else if (ROLE === "hero" && !heroNick()) { setTab("me"); toast("先取個勇者綽號、捏好你的長相"); }
+  else if (!okGeo) toast("沒有定位也能用，但看不到附近任務");
 });
 $("#btnSkip").addEventListener("click", () => { store.set("onboarded", true); $("#onboard").hidden = true; sizeRadar(); render(); });
 
