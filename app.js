@@ -101,7 +101,8 @@ const S = {
   list: [],
   seen: new Set(store.get("seen", [])),
   focus: null,
-  gmap: null, gReady: false, gMarkers: {}, gUser: null, gCircle: null
+  gmap: null, gReady: false, gMarkers: {}, gUser: null, gCircle: null,
+  lmap: null, lReady: false, lMarkers: {}, lUser: null, lCircle: null
 };
 const alive = (s) => Date.now() - s.createdAt < CFG.SOS_EXPIRE_MIN * 60000 || s.status === "done";
 function nearby() {
@@ -300,14 +301,59 @@ function heroURL() {
 }
 let gLoading = false;
 function loadGoogleMaps() {
-  if (!CFG.GMAPS_KEY || S.gReady || gLoading || !navigator.onLine) return;
+  if (!CFG.GMAPS_KEY) return loadLeaflet();
+  if (S.gReady || gLoading || !navigator.onLine) return;
   gLoading = true;
   window.__aokGmaps = () => { gLoading = false; S.gReady = true; initGmap(); };
-  window.gm_authFailure = () => { toast("Google 地圖金鑰無效，改用點陣雷達"); useRadar(); };
+  window.gm_authFailure = () => { toast("Google 地圖金鑰無效，改用免費地圖"); S.gReady = false; CFG.GMAPS_KEY = ""; loadLeaflet(); };
   const s = document.createElement("script");
   s.src = "https://maps.googleapis.com/maps/api/js?key=" + encodeURIComponent(CFG.GMAPS_KEY) + "&callback=__aokGmaps&v=weekly&language=zh-TW&region=TW";
   s.async = true; s.onerror = () => { gLoading = false; useRadar(); };
   document.head.appendChild(s);
+}
+
+/* ---------- 免費真實地圖（沒填 Google 金鑰時：Leaflet + OpenStreetMap 資料） ---------- */
+let lLoading = false;
+function loadLeaflet() {
+  if (S.lReady || lLoading || !navigator.onLine) return;
+  lLoading = true;
+  const css = document.createElement("link");
+  css.rel = "stylesheet"; css.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+  document.head.appendChild(css);
+  const s = document.createElement("script");
+  s.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+  s.async = true;
+  s.onload = () => { lLoading = false; S.lReady = true; initLmap(); };
+  s.onerror = () => { lLoading = false; useRadar(); };
+  document.head.appendChild(s);
+}
+function initLmap() {
+  if (!S.pos || S.lmap) return;
+  $("#gmap").hidden = false; radar.hidden = true; $("#hudMode").textContent = "街道地圖";
+  S.lmap = L.map($("#gmap"), { zoomControl: true, attributionControl: true }).setView([S.pos.lat, S.pos.lng], 16);
+  L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+    maxZoom: 19, subdomains: "abcd",
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+  }).addTo(S.lmap);
+  S.lCircle = L.circle([S.pos.lat, S.pos.lng], { radius: CFG.RADIUS_M, color: "#ffd23f", weight: 3, fillColor: "#ffd23f", fillOpacity: 0.06, interactive: false }).addTo(S.lmap);
+  S.lUser = L.marker([S.pos.lat, S.pos.lng], { icon: L.icon({ iconUrl: heroURL(), iconSize: [28, 28], iconAnchor: [14, 14] }), zIndexOffset: 1000, interactive: false }).addTo(S.lmap);
+  renderLmap();
+}
+function renderLmap() {
+  if (S.lReady && !S.lmap && S.pos) return initLmap();
+  if (!S.lmap || !S.pos) return;
+  S.lUser.setLatLng([S.pos.lat, S.pos.lng]); S.lCircle.setLatLng([S.pos.lat, S.pos.lng]);
+  const keep = new Set();
+  nearby().forEach((s) => {
+    keep.add(s.id);
+    const name = s.status === "open" ? "fire" : "pin", px = s.status === "open" ? 4 + s.level : 4, sz = 7 * px;
+    const key = name + px;
+    let m = S.lMarkers[s.id];
+    if (!m) { m = L.marker([s.lat, s.lng], { title: s.store }).addTo(S.lmap); m.on("click", () => openCard(s.id)); S.lMarkers[s.id] = m; }
+    if (m.__k !== key) { m.setIcon(L.icon({ iconUrl: iconURL(name, px), iconSize: [sz, sz], iconAnchor: [sz / 2, sz] })); m.__k = key; }
+    m.setLatLng([s.lat, s.lng]);
+  });
+  Object.keys(S.lMarkers).forEach((id) => { if (!keep.has(id)) { S.lMarkers[id].remove(); delete S.lMarkers[id]; } });
 }
 function useRadar() { $("#gmap").hidden = true; radar.hidden = false; $("#hudMode").textContent = "點陣雷達"; sizeRadar(); }
 function initGmap() {
@@ -338,6 +384,7 @@ function renderGmap() {
 }
 $("#recenter").addEventListener("click", () => {
   if (S.gmap && S.pos) { S.gmap.panTo(S.pos); S.gmap.setZoom(16); }
+  else if (S.lmap && S.pos) S.lmap.setView([S.pos.lat, S.pos.lng], 16);
   else if (!S.pos) startGeo();
   toast(S.pos ? "已回到你的位置（半徑 " + CFG.RADIUS_M + " 公尺）" : "正在取得定位…", 1600);
 });
@@ -379,7 +426,7 @@ function render() {
   $("#bagList").innerHTML = bag.map((s) => `<article class="px card"><div class="row"><span class="name">${esc(s.store)}</span></div>
     <div class="reward">${esc(s.reward)}</div><div class="coupon">${esc(s.code)}</div><div class="meta">出示此代碼給店員兌換</div></article>`).join("")
     || `<p class="empty">背包空空的，去接個任務吧。</p>`;
-  renderGmap();
+  renderGmap(); renderLmap();
 }
 document.addEventListener("click", async (e) => {
   const b = e.target.closest("[data-act]"); if (!b) return;
