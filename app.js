@@ -1,10 +1,10 @@
-/* 奧客互助協會 v1.3.1
+/* 奧客互助協會 v1.3.2
    創意發起人：Popcorn ｜ 程式美編設計：Kama
    純 HTML + JS，PWA：可離線、可加到主畫面（Android / iOS / 電腦） */
 (() => {
 "use strict";
 const CFG = Object.assign({ GMAPS_KEY: "", FIREBASE: null, RADIUS_M: 500, SOS_EXPIRE_MIN: 60, DEMO_SEED: true }, window.AOK_CONFIG || {});
-const VERSION = "v1.3.1";
+const VERSION = "v1.3.2";
 const AV = window.AokAvatar;
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -298,7 +298,8 @@ radar.addEventListener("click", (e) => {
   if (hit) openCard(hit.id);
 });
 let raf = 0;
-(function loop(t) { drawRadar(t); raf = requestAnimationFrame(loop); })(0);
+// 第一格延到下一個畫面才畫：有存過定位時，雷達會畫勇者，要等後面的 heroLookNow 宣告完成
+raf = requestAnimationFrame(function loop(t) { drawRadar(t); raf = requestAnimationFrame(loop); });
 addEventListener("resize", () => { sizeRadar(); });
 
 /* ---------- Google 地圖 ---------- */
@@ -373,9 +374,10 @@ function initLmap() {
   $("#gmap").hidden = false; radar.hidden = true; $("#hudMode").textContent = "街道地圖";
   S.lmap = L.map($("#gmap"), { zoomControl: false, attributionControl: true }).setView([S.pos.lat, S.pos.lng], 16);
   L.control.zoom({ position: "bottomleft" }).addTo(S.lmap);
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-    maxZoom: 19, subdomains: "abcd",
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+  // OSM 免費底圖（CARTO 深色底圖已改成要金鑰）；深色夜景靠 CSS 的 .aok-dark-tiles 濾鏡
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19, className: "aok-dark-tiles",
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
   }).addTo(S.lmap);
   S.lCircle = L.circle([S.pos.lat, S.pos.lng], { radius: CFG.RADIUS_M, color: "#ffd23f", weight: 3, fillColor: "#ffd23f", fillOpacity: 0.06, interactive: false }).addTo(S.lmap);
   S.lUser = L.marker([S.pos.lat, S.pos.lng], { icon: L.icon({ iconUrl: heroURL(), iconSize: [28, 28], iconAnchor: [14, 14] }), zIndexOffset: 1000, interactive: false }).addTo(S.lmap);

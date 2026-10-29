@@ -1,5 +1,5 @@
 // 奧客互助協會 Service Worker：離線快取 + 通知
-const VERSION = "aok-v1.3.1";
+const VERSION = "aok-v1.3.2";
 const SHELL = [
   "./", "./index.html", "./app.js", "./avatar.js", "./config.js", "./manifest.webmanifest",
   "./icons/icon-192.png", "./icons/icon-512.png", "./icons/apple-touch-icon.png"
@@ -23,7 +23,7 @@ self.addEventListener("fetch", (e) => {
   const url = new URL(req.url);
 
   // Google 地圖 / Firebase 即時資料：一律走網路，不快取（也避免違反地圖條款）
-  if (/maps\.googleapis|maps\.gstatic|firebaseio|firebasedatabase|cartocdn|unpkg/.test(url.hostname)) return;
+  if (/maps\.googleapis|maps\.gstatic|firebaseio|firebasedatabase|cartocdn|openstreetmap|unpkg/.test(url.hostname)) return;
 
   // 字型：快取優先（離線也有點陣字）
   if (/fonts\.(googleapis|gstatic)\.com/.test(url.hostname) || /gstatic\.com\/firebasejs/.test(req.url)) {
