@@ -1,12 +1,13 @@
 // 奧客互助協會 Service Worker：離線快取 + 通知
-const VERSION = "aok-v1.3.2";
+const VERSION = "aok-v1.3.3";
 const SHELL = [
   "./", "./index.html", "./app.js", "./avatar.js", "./config.js", "./manifest.webmanifest",
   "./icons/icon-192.png", "./icons/icon-512.png", "./icons/apple-touch-icon.png"
 ];
 
 self.addEventListener("install", (e) => {
-  e.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  // cache: "reload" 跳過瀏覽器的 HTTP 快取（GitHub Pages 會快取 10 分鐘），新版才不會裝到舊檔
+  e.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL.map((u) => new Request(u, { cache: "reload" })))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener("activate", (e) => {
@@ -44,7 +45,7 @@ self.addEventListener("fetch", (e) => {
     e.respondWith(
       caches.open(VERSION).then(async (c) => {
         const hit = await c.match(req, { ignoreSearch: true });
-        const net = fetch(req).then((res) => { if (res.ok) c.put(req, res.clone()); return res; }).catch(() => null);
+        const net = fetch(req, { cache: "no-cache" }).then((res) => { if (res.ok) c.put(req, res.clone()); return res; }).catch(() => null);
         return hit || (await net) || c.match("./index.html");
       })
     );
