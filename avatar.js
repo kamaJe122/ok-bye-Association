@@ -75,7 +75,8 @@
   };
   const W = 24, H = 32, OX = 4;   // 左右多留空間給書包、公事包、拐杖、小 baby
 
-  function build(look) {
+  // full=true：不裁切，固定 26×34 格的畫框，人物永遠站在正中間同一個位置
+  function build(look, full) {
     const L = normalize(look);
     const g = Array.from({ length: H }, () => Array(W).fill(null));
     const set = (x, y, c) => { x += OX; if (x >= 0 && x < W && y >= 0 && y < H) g[y][x] = c; };
@@ -291,15 +292,16 @@
     }
     let minX = W + 2, maxX = -1;
     out.forEach((r) => r.forEach((c, x) => { if (c) { minX = Math.min(minX, x); maxX = Math.max(maxX, x); } }));
+    if (full) return out;
     return out.map((r) => r.slice(minX, maxX + 1));
   }
 
   /* ---- 輸出 ---- */
   const cache = new Map();
-  function sprite(look, px) {
-    const key = JSON.stringify(normalize(look)) + "@" + px;
+  function sprite(look, px, full) {
+    const key = JSON.stringify(normalize(look)) + "@" + px + (full ? "F" : "");
     if (cache.has(key)) return cache.get(key);
-    const grid = build(look), c = document.createElement("canvas");
+    const grid = build(look, full), c = document.createElement("canvas");
     c.width = grid[0].length * px; c.height = grid.length * px;
     const g = c.getContext("2d");
     grid.forEach((r, y) => r.forEach((col, x) => { if (col) { g.fillStyle = col; g.fillRect(x * px, y * px, px, px); } }));
@@ -307,8 +309,9 @@
     cache.set(key, c);
     return c;
   }
+  // 編輯器預覽與任務卡：固定畫框，換配件時人物和版面都不會跳動
   function draw(canvas, look, px) {
-    const s = sprite(look, px);
+    const s = sprite(look, px, true);
     canvas.width = s.width; canvas.height = s.height;
     const g = canvas.getContext("2d");
     g.clearRect(0, 0, s.width, s.height); g.drawImage(s, 0, 0);

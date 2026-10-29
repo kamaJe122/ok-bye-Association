@@ -1,5 +1,5 @@
 // 奧客互助協會 Service Worker：離線快取 + 通知
-const VERSION = "aok-v1.6.0";
+const VERSION = "aok-v1.6.1";
 const SHELL = [
   "./", "./index.html", "./app.js", "./avatar.js", "./config.js", "./manifest.webmanifest",
   "./icons/icon-192.png", "./icons/icon-512.png", "./icons/apple-touch-icon.png"

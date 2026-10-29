@@ -1,10 +1,10 @@
-/* 奧客互助協會 v1.6.0
+/* 奧客互助協會 v1.6.1
    創意發起人：Popcorn ｜ 程式美編設計：Kama
    純 HTML + JS，PWA：可離線、可加到主畫面（Android / iOS / 電腦） */
 (() => {
 "use strict";
 const CFG = Object.assign({ GMAPS_KEY: "", FIREBASE: null, RADIUS_M: 500, SOS_EXPIRE_MIN: 60, DEMO_SEED: true }, window.AOK_CONFIG || {});
-const VERSION = "v1.6.0";
+const VERSION = "v1.6.1";
 const AV = window.AokAvatar;
 const shade = AV.shade;
 const $ = (s, r = document) => r.querySelector(s);
