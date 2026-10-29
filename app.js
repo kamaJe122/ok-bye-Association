@@ -1,10 +1,10 @@
-/* 奧客互助協會 v1.4.0
+/* 奧客互助協會 v1.5.0
    創意發起人：Popcorn ｜ 程式美編設計：Kama
    純 HTML + JS，PWA：可離線、可加到主畫面（Android / iOS / 電腦） */
 (() => {
 "use strict";
 const CFG = Object.assign({ GMAPS_KEY: "", FIREBASE: null, RADIUS_M: 500, SOS_EXPIRE_MIN: 60, DEMO_SEED: true }, window.AOK_CONFIG || {});
-const VERSION = "v1.4.0";
+const VERSION = "v1.5.0";
 const AV = window.AokAvatar;
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -271,24 +271,20 @@ function drawRadar(t = 0) {
   nearby().forEach((s) => {
     const ex = (s.lng - S.pos.lng) * M_PER_DEG * cosLat, ny = (s.lat - S.pos.lat) * M_PER_DEG;
     const x = cx + ex * scale, y = cy - ny * scale;
-    const px = s.status === "open" ? 3 + s.level : 4;
-    const flick = s.status === "open" && Math.floor(t / 180 + s.createdAt) % 2 ? 1 : 0;
-    const size = 7 * px;
-    if (s.status === "open") sprite("fire", x - size / 2, y - size + flick, px);
-    if (s.status === "open" && s.look) { const av = AV.sprite(s.look, 1); rg.drawImage(av, Math.round(x + size / 2 + 2), Math.round(y - av.height)); }
-    else if (s.status === "accepted") sprite("pin", x - size / 2, y - size, px);
-    else { rg.fillStyle = "#3fae5a"; rg.fillRect(x - 6, y - 12, 12, 12); }
+    const ic = markerIcon(s);
+    const bob = s.status === "open" && Math.floor(t / 600) % 2 ? 3 : 0;   // 任務符號上下跳
+    rg.drawImage(ic.canvas, Math.round(x - ic.ax), Math.round(y - ic.ay - bob));
     rg.font = "12px DotGothic16, monospace";
     const label = s.store.replace("（示範）", "");
     const tw = rg.measureText(label).width + 8;
     rg.fillStyle = "rgba(11,26,61,.85)"; rg.fillRect(x - tw / 2, y + 2, tw, 16);
     rg.fillStyle = "#fff6dc"; rg.fillText(label, x - tw / 2 + 4, y + 14);
-    hits.push({ id: s.id, x, y: y - size / 2, r: Math.max(size, 26) });
+    hits.push({ id: s.id, x: x - ic.ax + ic.w / 2, y: y - ic.h / 2, r: Math.max(ic.w, ic.h) / 2 });
   });
   sprite_hero(cx, cy);
 }
 function sprite_hero(cx, cy) {
-  if (ROLE === "store") return sprite("shop", cx - 14, cy - 14, 4);
+  if (ROLE === "store") { const ic = signCanvas({ status: "none", level: 1, logo: shopLogo() }, false); return rg.drawImage(ic.canvas, Math.round(cx - ic.ax), Math.round(cy - ic.ay + 10)); }
   const av = AV.sprite(heroLookNow(), 1);
   rg.drawImage(av, Math.round(cx - av.width / 2), Math.round(cy - av.height + 8));
 }
@@ -322,11 +318,11 @@ function iconURL(name, px) {
 }
 // 「我在這裡」標記：勇者顯示自己捏的樣子，店家顯示小店
 function meIcon() {
-  const key = ROLE + (ROLE === "hero" ? JSON.stringify(AV.normalize(heroLookNow())) : "");
+  const key = ROLE + (ROLE === "hero" ? JSON.stringify(AV.normalize(heroLookNow())) : shopLogo().length + shopLogo().slice(-32) + !!logoImg(shopLogo()));
   if (meIcon.k === key) return meIcon.v;
   let url, w, h;
   if (ROLE === "hero") { const c = AV.sprite(heroLookNow(), 2); url = c.toDataURL(); w = c.width; h = c.height; }
-  else { url = iconURL("shop", 5); w = h = 35; }
+  else { const ic = signCanvas({ status: "none", level: 1, logo: shopLogo() }, false); url = ic.url; w = ic.w; h = ic.h + 6; }
   meIcon.k = key; meIcon.v = { key, url, w, h };
   return meIcon.v;
 }
@@ -337,20 +333,85 @@ function heroURL() {
 }
 // 地圖標記：火焰（或圖釘）＋奧客小人並排
 const iconCache = new Map();
-function markerIcon(s) {
-  const name = s.status === "open" ? "fire" : "pin", px = s.status === "open" ? 4 + s.level : 4, sz = 7 * px;
-  const key = name + px + (s.status === "open" && s.look ? JSON.stringify(AV.normalize(s.look)) : "");
+/* ---------- 店家招牌：點陣 Logo ＋ RPG 任務符號 ---------- */
+// ！＝有任務　…＝勇者前往中　？＝待店家確認　✓＝已解決
+const BUB = {
+  "!": ["kkkkkkkkk", "kFFFkFFFk", "kFFFkFFFk", "kFFFkFFFk", "kFFFkFFFk", "kFFFFFFFk", "kFFFkFFFk", "kkkkkkkkk", "...kFk...", "....k...."],
+  "?": ["kkkkkkkkk", "kFFkkkFFk", "kFkFFFkFk", "kFFFFkFFk", "kFFFkFFFk", "kFFFFFFFk", "kFFFkFFFk", "kkkkkkkkk", "...kFk...", "....k...."],
+  "…": ["kkkkkkkkk", "kFFFFFFFk", "kFFFFFFFk", "kFFFFFFFk", "kFkFkFkFk", "kFFFFFFFk", "kFFFFFFFk", "kkkkkkkkk", "...kFk...", "....k...."],
+  "✓": ["kkkkkkkkk", "kFFFFFFFk", "kFFFFFkFk", "kFFFFkFFk", "kFkFkFFFk", "kFFkFFFFk", "kFFFFFFFk", "kkkkkkkkk", "...kFk...", "....k...."]
+};
+const QUEST = { open: ["!", "#ffd23f"], accepted: ["…", "#9fc3f0"], reported: ["?", "#ffd23f"], done: ["✓", "#3fae5a"] };
+const logoImgs = new Map();
+function logoImg(url) {
+  if (!url) return null;
+  let im = logoImgs.get(url);
+  if (!im) {
+    im = new Image();
+    im.onload = () => { iconCache.clear(); meIcon.k = null; render(); };
+    im.src = url; logoImgs.set(url, im);
+  }
+  return im.complete && im.naturalWidth ? im : null;
+}
+const shopLogo = () => store.get("shopLogo", "") || "";
+const shopAddr = () => store.get("shopAddr", null);
+function signCanvas(s, withQuest) {
+  const logo = logoImg(s.logo);
+  const showAv = withQuest && s.status === "open" && s.look;
+  const key = ["sign", s.status, s.level, withQuest ? 1 : 0, s.logo ? (logo ? s.logo.length + s.logo.slice(-32) : "wait") : "none",
+    showAv ? JSON.stringify(AV.normalize(s.look)) : ""].join("|");
   if (iconCache.has(key)) return iconCache.get(key);
-  const av = s.status === "open" && s.look ? AV.sprite(s.look, 2) : null;
-  const w = sz + (av ? av.width + 2 : 0), h = Math.max(sz, av ? av.height : 0);
+  const LG = 48, B = 4, signW = LG + B * 2, signH = LG + B * 2, pole = 8;
+  const bubH = withQuest && QUEST[s.status] ? 22 : 0;
+  const av = showAv ? AV.sprite(s.look, 1) : null;
+  const w = signW + (av ? av.width + 2 : 0);
+  const h = Math.max(bubH + signH + pole, av ? av.height : 0);
   const c = document.createElement("canvas"); c.width = w; c.height = h;
   const g = c.getContext("2d"); g.imageSmoothingEnabled = false;
-  ICONS[name].forEach((row, j) => [...row].forEach((ch, i) => { if (PAL[ch]) { g.fillStyle = PAL[ch]; g.fillRect(i * px, h - sz + j * px, px, px); } }));
-  if (av) g.drawImage(av, sz + 2, h - av.height);
-  const out = { key, url: c.toDataURL(), w, h, ax: sz / 2, ay: h };
+  const sy = h - pole - signH;
+  // 招牌柱子
+  g.fillStyle = "#1a1020"; g.fillRect(signW / 2 - 3, h - pole, 6, pole);
+  g.fillStyle = "#6b4a2b"; g.fillRect(signW / 2 - 2, h - pole, 4, pole - 1);
+  // 招牌框：黑邊＋金邊＋米白底
+  g.fillStyle = "#1a1020"; g.fillRect(0, sy, signW, signH);
+  g.fillStyle = "#f2c23b"; g.fillRect(2, sy + 2, signW - 4, signH - 4);
+  g.fillStyle = "#fff6dc"; g.fillRect(B, sy + B, LG, LG);
+  if (logo) g.drawImage(logo, B, sy + B, LG, LG);
+  else ICONS.shop.forEach((row, j) => [...row].forEach((ch, i) => { if (PAL[ch]) { g.fillStyle = PAL[ch]; g.fillRect(B + 3 + i * 6, sy + B + 3 + j * 6, 6, 6); } }));
+  // 奧客等級火焰（右下角）
+  if (withQuest && s.status === "open") {
+    const p = 1 + (s.level || 1), fz = 7 * p;
+    ICONS.fire.forEach((row, j) => [...row].forEach((ch, i) => { if (PAL[ch]) { g.fillStyle = PAL[ch]; g.fillRect(signW - fz + i * p, sy + signH - fz + j * p, p, p); } }));
+  }
+  // 任務符號泡泡
+  if (bubH) {
+    const [sym, fill] = QUEST[s.status], bx = Math.round(signW / 2 - 9);
+    BUB[sym].forEach((row, j) => [...row].forEach((ch, i) => {
+      if (ch === ".") return; g.fillStyle = ch === "k" ? "#1a1020" : fill; g.fillRect(bx + i * 2, sy - bubH + j * 2, 2, 2);
+    }));
+  }
+  if (av) g.drawImage(av, signW + 2, h - av.height);
+  const out = { key, canvas: c, url: c.toDataURL(), w, h, ax: signW / 2, ay: h };
   iconCache.set(key, out);
   return out;
 }
+// 上傳的圖 → 正方形裁切 → 縮成 n×n → 色階化（復古 216 色）＝點陣 Logo
+function pixelate(img, n) {
+  const W = img.naturalWidth || img.width, H = img.naturalHeight || img.height, s = Math.min(W, H);
+  const mid = document.createElement("canvas"); mid.width = mid.height = 128;
+  const mg = mid.getContext("2d"); mg.imageSmoothingQuality = "high";
+  mg.drawImage(img, (W - s) / 2, (H - s) / 2, s, s, 0, 0, 128, 128);
+  const c = document.createElement("canvas"); c.width = c.height = n;
+  const g = c.getContext("2d"); g.imageSmoothingQuality = "high"; g.drawImage(mid, 0, 0, n, n);
+  const d = g.getImageData(0, 0, n, n), a = d.data;
+  for (let i = 0; i < a.length; i += 4) {
+    if (a[i + 3] < 128) { a[i + 3] = 0; continue; }
+    a[i + 3] = 255; for (let k = 0; k < 3; k++) a[i + k] = Math.round(a[i + k] / 51) * 51;
+  }
+  g.putImageData(d, 0, 0);
+  return { pix: c.toDataURL("image/png"), src: mid.toDataURL("image/png") };
+}
+function markerIcon(s) { return signCanvas(s, true); }
 let gLoading = false;
 function loadGoogleMaps() {
   if (!CFG.GMAPS_KEY) return loadLeaflet();
@@ -405,7 +466,11 @@ function renderLmap() {
     const ic = markerIcon(s);
     let m = S.lMarkers[s.id];
     if (!m) { m = L.marker([s.lat, s.lng], { title: s.store }).addTo(S.lmap); m.on("click", () => openCard(s.id)); S.lMarkers[s.id] = m; }
-    if (m.__k !== ic.key) { m.setIcon(L.icon({ iconUrl: ic.url, iconSize: [ic.w, ic.h], iconAnchor: [ic.ax, ic.ay], className: "px-marker" })); m.__k = ic.key; }
+    if (m.__k !== ic.key) {
+      m.setIcon(L.divIcon({ html: `<img src="${ic.url}" width="${ic.w}" height="${ic.h}" class="qm${s.status === "open" ? " bob" : ""}" alt="">`,
+        className: "px-marker qm-wrap", iconSize: [ic.w, ic.h], iconAnchor: [ic.ax, ic.ay] }));
+      m.__k = ic.key;
+    }
     m.setLatLng([s.lat, s.lng]);
   });
   Object.keys(S.lMarkers).forEach((id) => { if (!keep.has(id)) { S.lMarkers[id].remove(); delete S.lMarkers[id]; } });
@@ -472,8 +537,9 @@ function applyRole() {
 }
 function renderShopLine() {
   const n = shopName();
+  const a = shopAddr(), lg = shopLogo();
   $("#shopLine").innerHTML = n
-    ? `店家：<b>${esc(n)}</b><button class="btn ghost sm" type="button" data-go="me">修改</button>`
+    ? `${lg ? `<img class="logo-sm" src="${esc(lg)}" alt="">` : ""}<span>店家：<b>${esc(n)}</b><br><small>${a ? "地址：" + esc(a.text) : "未設定地址（會用手機定位）"}</small></span><button class="btn ghost sm" type="button" data-go="me">修改</button>`
     : `還沒填店名<button class="btn red sm" type="button" data-go="me">去填店名</button>`;
 }
 $("#chipRole").addEventListener("click", () => setRole(ROLE === "store" ? "hero" : "store"));
@@ -524,8 +590,8 @@ function card(s, ctx) {
     if (s.status === "done") body = `${s.heroId ? heroBox(s) : ""}${s.code ? `<div class="meta">已發給勇者的兌換碼</div><div class="coupon">${esc(s.code)}</div>` : ""}`;
   }
   return `<article class="px card" id="sos-${id}">
-    <div class="row"><span class="name">${esc(s.store)}</span><span class="lv lv${s.level}">${LV[s.level]}</span><span class="st ${esc(s.status)}">${ST[s.status] || ""}</span></div>
-    <div class="meta">${S.pos ? fmtDist(distM(S.pos, s)) + "・" : ""}${ago(s.createdAt)}</div>
+    <div class="row">${s.logo ? `<img class="logo-sm" src="${esc(s.logo)}" alt="">` : ""}<span class="name">${esc(s.store)}</span><span class="lv lv${s.level}">${LV[s.level]}</span><span class="st ${esc(s.status)}">${ST[s.status] || ""}</span></div>
+    <div class="meta">${S.pos ? fmtDist(distM(S.pos, s)) + "・" : ""}${ago(s.createdAt)}${s.addr ? `<br>地址：${esc(s.addr)}` : ""}</div>
     ${s.look && s.status !== "done" ? lookBox(s.look, "", "奧客外觀") : ""}
     ${s.desc ? `<div>${esc(s.desc)}</div>` : ""}
     <div class="reward">獎勵：${esc(s.reward)}</div>
@@ -643,17 +709,19 @@ $("#lookOn").addEventListener("change", (e) => { store.set("lookOn", e.target.ch
 $("#sosForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   if (!shopName()) { toast("先到「我的」填店名，勇者才知道是哪一家"); return setTab("me"); }
-  if (!S.pos) { toast("需要定位才能標出你的店，請允許定位"); await startGeo(); if (!S.pos) return; }
+  const addr = shopAddr();
+  if (!addr && !S.pos) { toast("需要定位才能標出你的店，請允許定位，或到「我的」設定店家地址"); await startGeo(); if (!S.pos) return; }
+  const loc = addr || S.pos;
   const f = new FormData(e.target);
   const s = {
     id: uid(), owner: SID, store: shopName(), level: Number(f.get("level")) || 1,
     desc: String(f.get("desc") || "").trim(), reward: String(f.get("reward")).trim(),
-    lat: S.pos.lat, lng: S.pos.lng, createdAt: Date.now(), status: "open",
+    lat: loc.lat, lng: loc.lng, addr: addr ? addr.text : "", logo: shopLogo() || null, createdAt: Date.now(), status: "open",
     look: $("#lookOn").checked ? AV.normalize(lookEditor.get()) : null
   };
   await queueOrPut(s);
   beep([988, 784, 988, 784]);
-  toast("求救訊號已發出！附近 " + CFG.RADIUS_M + " 公尺的勇者會收到");
+  toast("求救訊號已發出！地圖上你的店家招牌冒出「！」了\n附近 " + CFG.RADIUS_M + " 公尺的勇者會收到" + (addr ? "" : "\n（沒設定地址，用的是手機定位）"));
   $("#fDesc").value = ""; store.set("descDraft", "");
 });
 
@@ -686,6 +754,97 @@ $("#btnTestNotif").addEventListener("click", async () => {
   if (!(await askNotif())) return toast("通知尚未開啟");
   notify({ id: "test", store: "測試店家", level: 2, reward: "測試獎勵", lat: S.pos ? S.pos.lat : 25, lng: S.pos ? S.pos.lng : 121.5 });
 });
+/* ---------- 店家資料：Logo 與地址 ---------- */
+const loadImg = (src) => new Promise((ok, bad) => { const im = new Image(); im.onload = () => ok(im); im.onerror = bad; im.src = src; });
+function renderLogoUI() {
+  const pix = shopLogo(), grid = store.get("logoGrid", 16);
+  $("#logoPreview").src = pix || signCanvas({ status: "none", level: 1, logo: "" }, false).url;
+  $("#logoPreview").classList.toggle("empty", !pix);
+  $("#btnLogoDel").hidden = !pix;
+  $$("#logoGrid [data-grid]").forEach((b) => b.setAttribute("aria-checked", String(+b.dataset.grid === grid)));
+}
+async function applyLogo(src, n) {
+  const im = await loadImg(src), out = pixelate(im, n);
+  store.set("shopLogo", out.pix); store.set("shopLogoSrc", out.src); store.set("logoGrid", n);
+  iconCache.clear(); meIcon.k = null; renderLogoUI(); renderShopLine(); render();
+}
+$("#fLogo").addEventListener("change", async (e) => {
+  const f = e.target.files && e.target.files[0]; if (!f) return;
+  if (!/^image\//.test(f.type)) return toast("請選圖片檔（PNG、JPG）");
+  const r = new FileReader();
+  r.onload = async () => { try { await applyLogo(r.result, store.get("logoGrid", 16)); toast("Logo 已轉成點陣圖"); } catch (_) { toast("這張圖讀不出來，換一張試試"); } };
+  r.readAsDataURL(f); e.target.value = "";
+});
+$("#logoGrid").addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-grid]"); if (!b) return;
+  const n = +b.dataset.grid; store.set("logoGrid", n);
+  const src = store.get("shopLogoSrc", ""); if (src) await applyLogo(src, n); else renderLogoUI();
+});
+$("#btnLogoDel").addEventListener("click", () => {
+  store.set("shopLogo", ""); store.set("shopLogoSrc", ""); iconCache.clear(); meIcon.k = null;
+  renderLogoUI(); renderShopLine(); render(); toast("已移除 Logo");
+});
+
+// 地址 → 座標：OpenStreetMap 的 Nominatim（免費、不用金鑰）
+const NOMI = "https://nominatim.openstreetmap.org/";
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+async function geocode(q) {
+  const toHalf = (t) => t.replace(/[０-９]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 0xFEE0)).replace(/\s+/g, "");
+  const base = toHalf(q);
+  const tries = [base, base.replace(/\d+樓.*$/, "").replace(/之\d+/, ""), base.replace(/\d+號.*$/, "")]
+    .filter((v, i, a) => v && a.indexOf(v) === i);
+  for (let i = 0; i < tries.length; i++) {
+    if (i) await wait(1100); // Nominatim 規定每秒最多 1 次
+    const res = await fetch(NOMI + "search?format=jsonv2&limit=5&countrycodes=tw&accept-language=zh-TW&q=" + encodeURIComponent(tries[i]));
+    const list = await res.json();
+    if (list.length) return { list, approx: i > 0 };
+  }
+  return { list: [], approx: false };
+}
+async function reverseGeo(p) {
+  try {
+    const res = await fetch(NOMI + "reverse?format=jsonv2&zoom=18&accept-language=zh-TW&lat=" + p.lat + "&lon=" + p.lng);
+    const j = await res.json(); return j.display_name || "";
+  } catch (_) { return ""; }
+}
+function saveAddr(a) {
+  store.set("shopAddr", a); renderAddr(); renderShopLine();
+  beep([659, 784]); toast("店家位置已設定，發求救時招牌會立在這裡");
+}
+function renderAddr() {
+  const a = shopAddr();
+  $("#addrSaved").innerHTML = a
+    ? `<b>已設定位置</b><br>${esc(a.text)}<br><a href="https://www.google.com/maps/search/?api=1&query=${a.lat},${a.lng}" target="_blank" rel="noopener">在 Google 地圖確認位置</a>`
+    : `還沒設定位置：發求救時會用手機當下的定位`;
+  $("#addrSaved").classList.toggle("ok", !!a);
+}
+$("#fAddr").value = (shopAddr() && shopAddr().text) || store.get("addrDraft", "");
+$("#fAddr").addEventListener("input", (e) => store.set("addrDraft", e.target.value));
+$("#btnGeo").addEventListener("click", async () => {
+  const q = $("#fAddr").value.trim(); if (!q) return toast("先輸入地址");
+  if (!navigator.onLine) return toast("離線中，連上網路才能查地址");
+  const box = $("#addrResults"); box.innerHTML = `<p class="note">搜尋中…</p>`;
+  try {
+    const { list, approx } = await geocode(q);
+    if (!list.length) { box.innerHTML = `<p class="note">找不到這個地址。可以只輸入到路名，或到店門口按「用我現在的位置」。</p>`; return; }
+    box.innerHTML = (approx ? `<p class="note">找不到門牌，以下是最接近的位置：</p>` : `<p class="note">選一個正確的位置：</p>`) +
+      list.map((r, i) => `<button type="button" data-addr="${i}">${esc(r.display_name)}</button>`).join("");
+    box.onclick = (e) => {
+      const b = e.target.closest("[data-addr]"); if (!b) return;
+      const r = list[+b.dataset.addr];
+      saveAddr({ text: q, full: r.display_name, lat: +r.lat, lng: +r.lon }); box.innerHTML = "";
+    };
+  } catch (_) { box.innerHTML = `<p class="note">地址查詢暫時連不上，稍後再試，或按「用我現在的位置」。</p>`; }
+});
+$("#btnHere").addEventListener("click", async () => {
+  if (!S.pos) { toast("正在取得定位…"); await startGeo(); if (!S.pos) return toast("拿不到定位，請允許定位權限"); }
+  const p = { lat: S.pos.lat, lng: S.pos.lng };
+  let text = $("#fAddr").value.trim();
+  if (!text && navigator.onLine) { text = await reverseGeo(p); $("#fAddr").value = text; }
+  saveAddr({ text: text || "目前位置", lat: p.lat, lng: p.lng });
+});
+$("#btnAddrDel").addEventListener("click", () => { store.set("shopAddr", null); renderAddr(); renderShopLine(); toast("已清除店家位置"); });
+renderLogoUI(); renderAddr();
 $("#ver").textContent = VERSION + "・" + (DB.mode === "cloud" ? "雲端同步" : "示範模式");
 applyRole();
 

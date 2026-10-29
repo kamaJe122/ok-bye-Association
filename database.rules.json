@@ -5,10 +5,24 @@
       "$id": {
         ".write": true,
         ".validate": "!newData.exists() || newData.hasChildren(['id', 'store', 'lat', 'lng', 'status', 'createdAt'])",
-        "status": { ".validate": "newData.val() === 'open' || newData.val() === 'accepted' || newData.val() === 'reported' || newData.val() === 'done'" },
-        "store": { ".validate": "newData.isString() && newData.val().length <= 30" },
-        "heroMsg": { ".validate": "newData.isString() && newData.val().length <= 80" },
-        "storeMsg": { ".validate": "newData.isString() && newData.val().length <= 80" }
+        "status": {
+          ".validate": "newData.val() === 'open' || newData.val() === 'accepted' || newData.val() === 'reported' || newData.val() === 'done'"
+        },
+        "store": {
+          ".validate": "newData.isString() && newData.val().length <= 30"
+        },
+        "heroMsg": {
+          ".validate": "newData.isString() && newData.val().length <= 80"
+        },
+        "storeMsg": {
+          ".validate": "newData.isString() && newData.val().length <= 80"
+        },
+        "logo": {
+          ".validate": "newData.isString() && newData.val().length <= 8000"
+        },
+        "addr": {
+          ".validate": "newData.isString() && newData.val().length <= 80"
+        }
       }
     }
   }

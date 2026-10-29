@@ -133,6 +133,24 @@ nav.tabs{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:1fr}
 .quick{display:flex;flex-wrap:wrap;gap:6px}
 .wait{font-size:13px;color:#5b4a3a;background:#fff3c4;border:2px dashed var(--ink);padding:4px 8px}
 .st.reported{background:var(--sky-2);color:var(--paper)}
+/* ===== 店家招牌 ===== */
+.logo-row{display:flex;gap:14px;align-items:center}
+.logo-prev{width:96px;height:96px;image-rendering:pixelated;background:var(--paper);border:4px solid var(--gold);outline:3px solid var(--ink);flex:none;object-fit:contain}
+.logo-ctl{display:grid;gap:6px;justify-items:start;min-width:0}
+.vh{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none}
+.addr-results{display:grid;gap:6px}
+.addr-results button{appearance:none;text-align:left;border:3px solid var(--ink);background:var(--paper);color:var(--ink);padding:6px 8px;font:inherit;font-size:13px;cursor:pointer}
+.addr-results button:focus-visible{outline:3px dashed var(--fire-hi);outline-offset:2px}
+.addr-saved{font-size:13px;background:var(--sky);border:3px solid var(--ink);padding:6px 10px;overflow-wrap:anywhere}
+.addr-saved.ok b{color:var(--grass)}
+.addr-saved a{color:var(--fire-hi)}
+.logo-sm{width:28px;height:28px;image-rendering:pixelated;border:2px solid var(--ink);background:var(--paper);flex:none}
+.shop-line span{min-width:0}
+.shop-line small{color:var(--mute);font-size:12px}
+.qm-wrap{background:none!important;border:0!important}
+.qm{image-rendering:pixelated;display:block}
+.qm.bob{animation:qbob 1.2s steps(2) infinite}
+@keyframes qbob{50%{transform:translateY(-4px)}}
 /* ===== 奧客外觀 ===== */
 .px-marker{image-rendering:pixelated}
 .who{display:flex;gap:10px;align-items:flex-end;background:var(--sky);color:var(--paper);padding:6px 10px;border:3px solid var(--ink);font-size:13px}
@@ -279,6 +297,34 @@ form{display:grid;gap:10px}
         <label for="fShop">店名（勇者會看到）
           <input id="fShop" maxlength="30" placeholder="例：金茂宜蘆洲店" autocomplete="organization">
         </label>
+
+        <span class="ava-label">店家 Logo（會變成地圖上的點陣招牌）</span>
+        <div class="logo-row">
+          <img id="logoPreview" class="logo-prev" alt="店家 Logo 點陣預覽">
+          <div class="logo-ctl">
+            <input type="file" id="fLogo" accept="image/*" class="vh">
+            <label class="btn ghost sm" for="fLogo">上傳 Logo</label>
+            <span class="ava-label">點陣精細度</span>
+            <div class="ava-opts" id="logoGrid" role="radiogroup" aria-label="點陣精細度">
+              <button type="button" class="ava-opt" data-grid="12" role="radio">粗</button>
+              <button type="button" class="ava-opt" data-grid="16" role="radio">中</button>
+              <button type="button" class="ava-opt" data-grid="24" role="radio">細</button>
+            </div>
+            <button type="button" class="btn ghost sm" id="btnLogoDel" hidden>移除 Logo</button>
+          </div>
+        </div>
+        <p class="note">建議用正方形、背景單純的圖，上傳後會自動轉成點陣風格。</p>
+
+        <label for="fAddr">店家地址
+          <input id="fAddr" maxlength="80" placeholder="例：新北市蘆洲區長樂路108號" autocomplete="street-address">
+        </label>
+        <div class="row">
+          <button type="button" class="btn ghost sm" id="btnGeo">搜尋地址</button>
+          <button type="button" class="btn ghost sm" id="btnHere">用我現在的位置</button>
+          <button type="button" class="btn ghost sm" id="btnAddrDel">清除</button>
+        </div>
+        <div class="addr-results" id="addrResults"></div>
+        <div class="addr-saved" id="addrSaved"></div>
       </div>
 
       <div id="heroProfile" class="profile">
