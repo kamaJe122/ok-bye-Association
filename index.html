@@ -67,6 +67,8 @@ header h1{margin:0;font-size:20px;letter-spacing:.08em;text-shadow:2px 2px 0 var
 
 #stage{position:relative;overflow:hidden;background:var(--sky)}
 #gmap,#radar{position:absolute;inset:0;width:100%;height:100%}
+#gmap{z-index:0} /* 把地圖的圖層關在自己裡面，不會蓋住彈出面板 */
+.hud{z-index:1}
 .aok-dark-tiles{filter:invert(1) hue-rotate(180deg) brightness(.85) contrast(.9) saturate(.6)}
 #radar{touch-action:none}
 .hud{position:absolute;left:12px;right:12px;top:12px;display:flex;gap:8px;flex-wrap:wrap;pointer-events:none}

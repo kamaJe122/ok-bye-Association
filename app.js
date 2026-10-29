@@ -1,10 +1,10 @@
-/* 奧客互助協會 v1.3.3
+/* 奧客互助協會 v1.4.0
    創意發起人：Popcorn ｜ 程式美編設計：Kama
    純 HTML + JS，PWA：可離線、可加到主畫面（Android / iOS / 電腦） */
 (() => {
 "use strict";
 const CFG = Object.assign({ GMAPS_KEY: "", FIREBASE: null, RADIUS_M: 500, SOS_EXPIRE_MIN: 60, DEMO_SEED: true }, window.AOK_CONFIG || {});
-const VERSION = "v1.3.3";
+const VERSION = "v1.4.0";
 const AV = window.AokAvatar;
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -320,6 +320,16 @@ function iconURL(name, px) {
   ICONS[name].forEach((row, j) => [...row].forEach((ch, i) => { if (PAL[ch]) { g.fillStyle = PAL[ch]; g.fillRect(i * px, j * px, px, px); } }));
   return c.toDataURL();
 }
+// 「我在這裡」標記：勇者顯示自己捏的樣子，店家顯示小店
+function meIcon() {
+  const key = ROLE + (ROLE === "hero" ? JSON.stringify(AV.normalize(heroLookNow())) : "");
+  if (meIcon.k === key) return meIcon.v;
+  let url, w, h;
+  if (ROLE === "hero") { const c = AV.sprite(heroLookNow(), 2); url = c.toDataURL(); w = c.width; h = c.height; }
+  else { url = iconURL("shop", 5); w = h = 35; }
+  meIcon.k = key; meIcon.v = { key, url, w, h };
+  return meIcon.v;
+}
 function heroURL() {
   const c = document.createElement("canvas"); c.width = c.height = 28; const g = c.getContext("2d");
   HERO.forEach((row, j) => [...row].forEach((ch, i) => { if (PAL[ch]) { g.fillStyle = PAL[ch]; g.fillRect(i * 4, j * 4, 4, 4); } }));
@@ -387,6 +397,8 @@ function renderLmap() {
   if (S.lReady && !S.lmap && S.pos) return initLmap();
   if (!S.lmap || !S.pos) return;
   S.lUser.setLatLng([S.pos.lat, S.pos.lng]); S.lCircle.setLatLng([S.pos.lat, S.pos.lng]);
+  const mi = meIcon();
+  if (S.lUser.__k !== mi.key) { S.lUser.setIcon(L.icon({ iconUrl: mi.url, iconSize: [mi.w, mi.h], iconAnchor: [mi.w / 2, mi.h - 6], className: "px-marker" })); S.lUser.__k = mi.key; }
   const keep = new Set();
   nearby().forEach((s) => {
     keep.add(s.id);
@@ -413,6 +425,8 @@ function renderGmap() {
   if (S.gReady && !S.gmap && S.pos) return initGmap();
   if (!S.gmap || !S.pos) return;
   S.gUser.setPosition(S.pos); S.gCircle.setCenter(S.pos);
+  const mi = meIcon();
+  if (S.gUser.__k !== mi.key) { S.gUser.setIcon({ url: mi.url, scaledSize: new google.maps.Size(mi.w, mi.h), anchor: new google.maps.Point(mi.w / 2, mi.h - 6) }); S.gUser.__k = mi.key; }
   const keep = new Set();
   nearby().forEach((s) => {
     keep.add(s.id);
@@ -666,7 +680,7 @@ $("#fHero").value = heroNick();
 $("#fHero").addEventListener("input", (e) => store.set("hero", e.target.value.trim()));
 $("#fShop").value = shopName();
 $("#fShop").addEventListener("input", (e) => { store.set("shop", e.target.value.trim()); renderShopLine(); });
-heroEditor = AV.mountEditor($("#heroLookEditor"), store.get("heroLook", AV.DEFAULT), (l) => store.set("heroLook", l));
+heroEditor = AV.mountEditor($("#heroLookEditor"), store.get("heroLook", AV.DEFAULT), (l) => { store.set("heroLook", l); renderGmap(); renderLmap(); });
 $("#btnPerm").addEventListener("click", () => showOnboard(true));
 $("#btnTestNotif").addEventListener("click", async () => {
   if (!(await askNotif())) return toast("通知尚未開啟");

@@ -8,6 +8,10 @@
     age: [{ v: "kid", n: "小朋友" }, { v: "student", n: "學生" }, { v: "office", n: "上班族" }, { v: "parent", n: "爸爸媽媽" }, { v: "elder", n: "爺爺奶奶" }],
     hairColor: [C("black", "黑", "#2a2230"), C("brown", "棕", "#7a4a24"), C("blonde", "金", "#f2c23b"), C("red", "紅", "#c8402e"), C("silver", "銀白", "#dcdce6"), C("blue", "藍", "#3a6ad8")],
     hairLen: [{ v: "long", n: "長髮" }, { v: "short", n: "短髮" }, { v: "curly", n: "捲髮" }],
+    hat: [{ v: "none", n: "沒戴" }, { v: "cap", n: "棒球帽" }, { v: "beanie", n: "毛帽" }, { v: "sunhat", n: "遮陽帽" }],
+    hatColor: [C("red", "紅", "#d23a2a"), C("blue", "藍", "#2d64c8"), C("green", "綠", "#3fae5a"), C("yellow", "黃", "#f2c23b"), C("black", "黑", "#2a2230"), C("white", "白", "#f6f6f6")],
+    glasses: [{ v: "none", n: "沒戴" }, { v: "round", n: "圓框" }, { v: "square", n: "方框" }],
+    glassesSize: [{ v: "small", n: "小" }, { v: "big", n: "大" }],
     topLen: [{ v: "long", n: "長袖" }, { v: "short", n: "短袖" }],
     topColor: [C("red", "紅", "#d23a2a"), C("blue", "藍", "#2d64c8"), C("green", "綠", "#3fae5a"), C("yellow", "黃", "#f2c23b"), C("black", "黑", "#2a2230"), C("white", "白", "#f6f6f6")],
     bottom: [{ v: "pants", n: "長褲" }, { v: "shorts", n: "短褲" }, { v: "longskirt", n: "長裙" }, { v: "skirt", n: "短裙" }],
@@ -17,10 +21,12 @@
   };
   const GROUPS = [
     ["gender", "性別"], ["age", "年紀"], ["hairColor", "髮色"], ["hairLen", "髮型"],
+    ["hat", "帽子"], ["hatColor", "帽子顏色"], ["glasses", "眼鏡"], ["glassesSize", "鏡框大小"],
     ["topLen", "上衣"], ["topColor", "上衣顏色"], ["bottom", "下身"], ["bottomColor", "下身顏色"],
     ["shoes", "鞋子"], ["shoeColor", "鞋子顏色"]
   ];
-  const DEFAULT = { gender: "m", age: "office", hairColor: "black", hairLen: "short", topLen: "long", topColor: "blue",
+  const DEFAULT = { gender: "m", age: "office", hairColor: "black", hairLen: "short",
+    hat: "none", hatColor: "red", glasses: "none", glassesSize: "small", topLen: "long", topColor: "blue",
     bottom: "pants", bottomColor: "black", shoes: "sneaker", shoeColor: "black" };
 
   const get = (k, v) => OPT[k].find((o) => o.v === v) || OPT[k].find((o) => o.v === DEFAULT[k]);
@@ -38,9 +44,11 @@
     const L = normalize(look), n = (k) => get(k, L[k]).n;
     return [n("gender"), n("age"),
       n("hairColor") + "色" + n("hairLen"),
+      L.hat !== "none" ? n("hatColor") + "色" + n("hat") : "",
+      L.glasses !== "none" ? n("glassesSize") + n("glasses") + "眼鏡" : "",
       n("topColor") + "色" + n("topLen"),
       n("bottomColor") + n("bottom"),
-      n("shoeColor") + "色" + n("shoes")].join("・");
+      n("shoeColor") + "色" + n("shoes")].filter(Boolean).join("・");
   }
 
   /* ---- 顏色工具 ---- */
@@ -188,15 +196,42 @@
       }
     }
 
-    // 10. 爺爺奶奶的眼鏡
-    if (L.age === "elder") {
-      row(5, 7, ey - 1, INK); row(8, 10, ey - 1, INK);
-      set(5, ey, INK); set(7, ey, INK); set(8, ey, INK); set(10, ey, INK);
-      set(6, ey, "#9fc3f0"); set(9, ey, "#9fc3f0");
-      set(6, ey + 1, INK); set(9, ey + 1, INK);
+    // 10. 帽子（畫在頭髮上面）
+    if (L.hat !== "none") {
+      const kc = get("hatColor", L.hatColor).c, kd = shade(kc, 0.75), kl = shade(kc, 1.15);
+      if (L.hat === "cap") {
+        row(5, 10, headTop - 2, kc); row(4, 11, headTop - 1, kc);
+        set(6, headTop - 2, kl); set(7, headTop - 1, "#fff6dc");      // 帽子上的小標誌
+        row(3, 12, headTop, kd); row(9, 13, headTop, kd);             // 帽簷
+      } else if (L.hat === "beanie") {
+        set(7, headTop - 3, "#fff6dc"); set(8, headTop - 3, "#fff6dc"); // 毛球
+        row(5, 10, headTop - 2, kc); row(4, 11, headTop - 1, kc);
+        for (let x = 4; x <= 11; x++) { set(x, headTop, x % 2 ? kd : kc); set(x, headTop + 1, x % 2 ? kc : kd); } // 羅紋反摺
+      } else {
+        row(5, 10, headTop - 3, kc); row(5, 10, headTop - 2, kc);
+        row(5, 10, headTop - 1, "#1a1020");                           // 緞帶
+        row(1, 14, headTop, kd); row(2, 13, headTop, kc);             // 寬帽簷
+      }
     }
 
-    // 11. 描邊（遊戲感 + 在深色雷達上看得清楚）
+    // 11. 眼鏡：圓框／方框 × 大／小
+    if (L.glasses !== "none") {
+      const F = "#1a1020", LENS = "#9fc3f0", big = L.glassesSize === "big", round = L.glasses === "round";
+      const lens = (x0, x1, eye) => {
+        for (let y = ey - 1; y <= ey + 1; y++) for (let x = x0; x <= x1; x++) {
+          const edge = y !== ey || x === x0 || x === x1;
+          const corner = (x === x0 || x === x1) && y !== ey;
+          if (round && corner) continue;
+          const glass = !round && y === ey + 1 && x !== x0 && x !== x1;   // 方框：下緣露出鏡片反光，才不會像墨鏡
+          set(x, y, glass ? LENS : edge ? F : (x === eye ? INK : LENS));
+        }
+      };
+      if (big) { lens(4, 7, 6); lens(8, 11, 9); }
+      else { lens(5, 7, 6); lens(8, 10, 9); }
+      if (round && !big) { set(7, ey, F); set(8, ey, F); }            // 鼻樑
+    }
+
+    // 12. 描邊（遊戲感 + 在深色雷達上看得清楚）
     const O = Array.from({ length: H + 2 }, () => Array(W + 2).fill(null));
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) O[y + 1][x + 1] = g[y][x];
     const out = O.map((r) => r.slice());
