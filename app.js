@@ -1,10 +1,10 @@
-/* 奧客互助協會 v1.5.1
+/* 奧客互助協會 v1.5.2
    創意發起人：Popcorn ｜ 程式美編設計：Kama
    純 HTML + JS，PWA：可離線、可加到主畫面（Android / iOS / 電腦） */
 (() => {
 "use strict";
 const CFG = Object.assign({ GMAPS_KEY: "", FIREBASE: null, RADIUS_M: 500, SOS_EXPIRE_MIN: 60, DEMO_SEED: true }, window.AOK_CONFIG || {});
-const VERSION = "v1.5.1";
+const VERSION = "v1.5.2";
 const AV = window.AokAvatar;
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -807,23 +807,41 @@ function googleGeocode(q) {
     } catch (_) { ok(null); }
   });
 }
+// 從地址抓出路名（長樂路、中山路二段…），用來過濾掉「長榮路」這種名字很像的錯誤結果
+function roadOf(q) {
+  const t = q.replace(/\s+/g, "").replace(/^.+?[縣市](?=.)/, "").replace(/^.+?[區鄉鎮市](?=.)/, "");
+  const m = t.match(/^(.+?(?:大道|路|街))((?:[一二三四五六七八九十]|\d)+段)?/);
+  return m ? { road: m[1], sec: m[2] || "" } : null;
+}
 async function geocode(q) {
   // 有 Google 金鑰時用 Google（台灣門牌最準），失敗才退回 OpenStreetMap
   if (window.google && google.maps && google.maps.Geocoder) {
     const g = await googleGeocode(q);
-    if (g && g.length) return { list: g, approx: false };
+    if (g && g.length) return { list: g.map((r) => ({ label: r.display_name, lat: +r.lat, lng: +r.lon, exact: true })), road: null };
   }
   const toHalf = (t) => t.replace(/[０-９]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 0xFEE0)).replace(/\s+/g, "");
-  const base = toHalf(q);
+  const base = toHalf(q), R = roadOf(base);
   const tries = [base, base.replace(/\d+樓.*$/, "").replace(/之\d+/, ""), base.replace(/\d+號.*$/, "")]
     .filter((v, i, a) => v && a.indexOf(v) === i);
   for (let i = 0; i < tries.length; i++) {
     if (i) await wait(1100); // Nominatim 規定每秒最多 1 次
-    const res = await fetch(NOMI + "search?format=jsonv2&limit=5&countrycodes=tw&accept-language=zh-TW&q=" + encodeURIComponent(tries[i]));
-    const list = await res.json();
-    if (list.length) return { list, approx: i > 0 };
+    const res = await fetch(NOMI + "search?format=jsonv2&addressdetails=1&limit=10&countrycodes=tw&accept-language=zh-TW&q=" + encodeURIComponent(tries[i]));
+    let list = await res.json();
+    // 只留路名完全相符的
+    if (R) list = list.filter((r) => ((r.address && r.address.road) || r.display_name).includes(R.road));
+    // 同一條路被切成很多段 → 合併成一筆（取第一段當代表）
+    const seen = new Set(), out = [];
+    for (const r of list) {
+      const a = r.address || {};
+      const area = [a.city_district || a.suburb || a.town || "", a.quarter || a.neighbourhood || ""].filter(Boolean).join(" ");
+      const label = (a.road || r.display_name.split(",")[0]) + (a.house_number ? " " + a.house_number + "號" : "") + (area ? "（" + area + "）" : "");
+      const k = (a.road || "") + "|" + (a.house_number || "") + "|" + (a.city_district || a.suburb || "");
+      if (seen.has(k)) continue; seen.add(k);
+      out.push({ label, lat: +r.lat, lng: +r.lon, exact: !!a.house_number });
+    }
+    if (out.length) return { list: out.slice(0, 4), road: R };
   }
-  return { list: [], approx: false };
+  return { list: [], road: R };
 }
 async function reverseGeo(p) {
   try {
@@ -849,16 +867,73 @@ $("#btnGeo").addEventListener("click", async () => {
   if (!navigator.onLine) return toast("離線中，連上網路才能查地址");
   const box = $("#addrResults"); box.innerHTML = `<p class="note">搜尋中…</p>`;
   try {
-    const { list, approx } = await geocode(q);
-    if (!list.length) { box.innerHTML = `<p class="note">找不到這個地址。可以只輸入到路名，或到店門口按「用我現在的位置」。</p>`; return; }
-    box.innerHTML = (approx ? `<p class="note">找不到門牌，以下是最接近的位置：</p>` : `<p class="note">選一個正確的位置：</p>`) +
-      list.map((r, i) => `<button type="button" data-addr="${i}">${esc(r.display_name)}</button>`).join("");
+    const { list, road } = await geocode(q);
+    if (!list.length) {
+      box.innerHTML = `<p class="note">地圖資料裡找不到${road ? "「" + esc(road.road) + "」" : "這個地址"}。請按下面的按鈕，直接在地圖上把招牌移到你的店門口。</p>
+        <button type="button" class="btn red sm" data-pick="here">在地圖上選位置</button>`;
+      return;
+    }
+    const exact = list.some((r) => r.exact);
+    box.innerHTML = `<p class="note">${exact ? "選一個正確的位置，下一步可以再微調：" : "免費地圖沒有門牌號碼，只找到這條路。選一個後，請在地圖上把招牌移到店門口："}</p>` +
+      list.map((r, i) => `<button type="button" data-addr="${i}"><b>${esc(r.label)}</b>${r.exact ? "" : "<small>（只到路名，需要微調）</small>"}</button>`).join("");
     box.onclick = (e) => {
       const b = e.target.closest("[data-addr]"); if (!b) return;
       const r = list[+b.dataset.addr];
-      saveAddr({ text: q, full: r.display_name, lat: +r.lat, lng: +r.lon }); box.innerHTML = "";
+      openPicker({ lat: r.lat, lng: r.lng }, q);
     };
-  } catch (_) { box.innerHTML = `<p class="note">地址查詢暫時連不上，稍後再試，或按「用我現在的位置」。</p>`; }
+  } catch (_) { box.innerHTML = `<p class="note">地址查詢暫時連不上。可以直接在地圖上選位置：</p><button type="button" class="btn red sm" data-pick="here">在地圖上選位置</button>`; }
+});
+document.addEventListener("click", (e) => { if (e.target.closest("[data-pick]")) openPicker(null, $("#fAddr").value.trim()); });
+
+/* ---------- 在地圖上選店家位置（把招牌拖到店門口） ---------- */
+let pickMap = null, pickText = "";
+function pickerCenter() {
+  if (!pickMap) return null;
+  const c = pickMap.getCenter();
+  return typeof c.lat === "function" ? { lat: c.lat(), lng: c.lng() } : { lat: c.lat, lng: c.lng };
+}
+function openPicker(at, text) {
+  const start = at || shopAddr() || S.pos || { lat: 25.0478, lng: 121.5170 };
+  pickText = text || "";
+  const useGoogle = window.google && google.maps && google.maps.Map;
+  if (!useGoogle && !window.L) {
+    if (navigator.onLine) { loadLeaflet(); toast("地圖載入中，再按一次"); } else toast("離線中，無法開地圖；請到店門口按「用我現在的位置」");
+    return;
+  }
+  $("#picker").hidden = false;
+  $("#pickerPin").src = signCanvas({ status: "none", level: 1, logo: shopLogo() }, false).url;
+  if (!pickMap) {
+    if (useGoogle) {
+      pickMap = new google.maps.Map($("#pickerMap"), { center: start, zoom: 18, disableDefaultUI: true, zoomControl: true, gestureHandling: "greedy", clickableIcons: false });
+      pickMap.addListener("center_changed", showPickCoord);
+    } else {
+      pickMap = L.map($("#pickerMap"), { zoomControl: false }).setView([start.lat, start.lng], 18);
+      L.control.zoom({ position: "bottomleft" }).addTo(pickMap);
+      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, className: "aok-dark-tiles",
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' }).addTo(pickMap);
+      pickMap.on("move", showPickCoord);
+    }
+  }
+  setTimeout(() => {
+    if (pickMap.invalidateSize) { pickMap.invalidateSize(); pickMap.setView([start.lat, start.lng], 18); }
+    else { pickMap.setCenter(start); pickMap.setZoom(18); }
+    showPickCoord();
+  }, 60);
+}
+function showPickCoord() {
+  const c = pickerCenter(); if (!c) return;
+  const d = S.pos ? "・離你 " + fmtDist(distM(S.pos, c)) : "";
+  $("#pickerCoord").textContent = c.lat.toFixed(5) + ", " + c.lng.toFixed(5) + d;
+}
+$("#pickerCancel").addEventListener("click", () => ($("#picker").hidden = true));
+$("#pickerGps").addEventListener("click", async () => {
+  if (!S.pos) { await startGeo(); if (!S.pos) return toast("拿不到定位"); }
+  if (pickMap.invalidateSize) pickMap.setView([S.pos.lat, S.pos.lng], 18); else pickMap.setCenter(S.pos);
+});
+$("#pickerOk").addEventListener("click", () => {
+  const c = pickerCenter(); if (!c) return;
+  $("#picker").hidden = true; $("#addrResults").innerHTML = "";
+  saveAddr({ text: pickText || $("#fAddr").value.trim() || "地圖上選的位置", lat: c.lat, lng: c.lng });
 });
 $("#btnHere").addEventListener("click", async () => {
   if (!S.pos) { toast("正在取得定位…"); await startGeo(); if (!S.pos) return toast("拿不到定位，請允許定位權限"); }

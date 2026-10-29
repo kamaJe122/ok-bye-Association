@@ -151,6 +151,17 @@ nav.tabs{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:1fr}
 .qm{image-rendering:pixelated;display:block}
 .qm.bob{animation:qbob 1.2s steps(2) infinite}
 @keyframes qbob{50%{transform:translateY(-4px)}}
+.addr-results button b{display:block}
+.addr-results button small{color:#8a6a3a}
+.picker{position:fixed;inset:0;z-index:55;display:grid;grid-template-rows:auto 1fr auto;background:var(--night)}
+.picker-bar{padding:calc(env(safe-area-inset-top,0px) + 10px) 16px 10px;background:var(--sky);border-bottom:4px solid var(--ink);display:grid;gap:2px}
+.picker-bar b{color:var(--fire-hi);font-size:15px}
+.picker-bar small{color:var(--mute);font-size:12px;font-variant-numeric:tabular-nums}
+.picker-body{position:relative;overflow:hidden}
+#pickerMap{position:absolute;inset:0;z-index:0}
+.picker-pin{position:absolute;left:50%;top:50%;transform:translate(-50%,-100%);image-rendering:pixelated;pointer-events:none;z-index:1}
+.picker-actions{display:grid;grid-template-columns:1fr 1fr 1.3fr;gap:6px;padding:10px 12px calc(env(safe-area-inset-bottom,0px) + 12px);background:var(--ground);border-top:4px solid var(--ink)}
+.picker-actions .btn{padding:10px 4px;font-size:14px}
 /* ===== 奧客外觀 ===== */
 .px-marker{image-rendering:pixelated}
 .who{display:flex;gap:10px;align-items:flex-end;background:var(--sky);color:var(--paper);padding:6px 10px;border:3px solid var(--ink);font-size:13px}
@@ -321,6 +332,7 @@ form{display:grid;gap:10px}
         </label>
         <div class="row">
           <button type="button" class="btn ghost sm" id="btnGeo">搜尋地址</button>
+          <button type="button" class="btn red sm" data-pick="map">在地圖上選位置</button>
           <button type="button" class="btn ghost sm" id="btnHere">用我現在的位置</button>
           <button type="button" class="btn ghost sm" id="btnAddrDel">清除</button>
         </div>
@@ -389,6 +401,20 @@ form{display:grid;gap:10px}
     <button class="btn red wide" type="button" id="btnStart">開始冒險（允許權限）</button>
     <button class="btn ghost wide" type="button" id="btnSkip">先逛逛</button>
     <p class="credits">創意發起人：Popcorn ｜ 程式美編設計：Kama</p>
+  </div>
+</div>
+
+<!-- 在地圖上選店家位置 -->
+<div id="picker" class="picker" hidden role="dialog" aria-label="在地圖上選店家位置">
+  <div class="picker-bar"><b>移動地圖，把招牌底部對準你的店門口</b><small id="pickerCoord"></small></div>
+  <div class="picker-body">
+    <div id="pickerMap"></div>
+    <img id="pickerPin" class="picker-pin" alt="">
+  </div>
+  <div class="picker-actions">
+    <button type="button" class="btn ghost" id="pickerCancel">取消</button>
+    <button type="button" class="btn ghost" id="pickerGps">到我的位置</button>
+    <button type="button" class="btn green" id="pickerOk">確認在這裡</button>
   </div>
 </div>
 
