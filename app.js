@@ -1,10 +1,10 @@
-/* 奧客互助協會 v1.5.0
+/* 奧客互助協會 v1.5.1
    創意發起人：Popcorn ｜ 程式美編設計：Kama
    純 HTML + JS，PWA：可離線、可加到主畫面（Android / iOS / 電腦） */
 (() => {
 "use strict";
 const CFG = Object.assign({ GMAPS_KEY: "", FIREBASE: null, RADIUS_M: 500, SOS_EXPIRE_MIN: 60, DEMO_SEED: true }, window.AOK_CONFIG || {});
-const VERSION = "v1.5.0";
+const VERSION = "v1.5.1";
 const AV = window.AokAvatar;
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -121,11 +121,13 @@ const S = {
   gmap: null, gReady: false, gMarkers: {}, gUser: null, gCircle: null,
   lmap: null, lReady: false, lMarkers: {}, lUser: null, lCircle: null
 };
+// 地圖中心：店家看自己店的位置（有設地址），勇者看手機定位
+const here = () => (ROLE === "store" && store.get("shopAddr", null)) || S.pos;
 const alive = (s) => Date.now() - s.createdAt < CFG.SOS_EXPIRE_MIN * 60000 || s.status === "done";
 function nearby() {
-  if (!S.pos) return [];
+  if (!here()) return [];
   return S.list.filter(alive)
-    .map((s) => Object.assign({ d: distM(S.pos, s) }, s))
+    .map((s) => Object.assign({ d: distM(here(), s) }, s))
     .filter((s) => s.d <= CFG.RADIUS_M || s.owner === SID || s.heroId === HID)
     .sort((a, b) => (a.status === "open" ? 0 : 1) - (b.status === "open" ? 0 : 1) || a.d - b.d);
 }
@@ -142,6 +144,9 @@ function refreshChips() {
   setChip("#chipNet", navigator.onLine, navigator.onLine ? (DB.mode === "cloud" ? "雲端" : "示範") : "離線");
   $("#offline").hidden = navigator.onLine;
   $("#okGps").textContent = S.pos ? "OK" : "";
+  const acc = S.pos && S.pos.acc;
+  $("#hudAcc").hidden = !acc;
+  if (acc) $("#hudAcc").innerHTML = "定位 <b>±" + Math.round(acc) + "M</b>" + (acc > 50 ? "（偏差大，到室外或開 GPS）" : "");
   $("#okNotif").textContent = notifSupported && Notification.permission === "granted" ? "OK" : "";
 }
 
@@ -153,7 +158,7 @@ function startGeo() {
     watchId != null && navigator.geolocation.clearWatch(watchId);
     watchId = navigator.geolocation.watchPosition((p) => {
       const np = { lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy };
-      const moved = !S.pos || distM(S.pos, np) > 15;
+      const moved = !S.pos || distM(S.pos, np) > 15 || Math.abs((S.pos.acc || 0) - (np.acc || 0)) > 10;
       S.pos = np; store.set("pos", np);
       if (first) { first = false; seedDemo(); resolve(true); }
       if (moved) render();
@@ -162,7 +167,7 @@ function startGeo() {
       if (first) { first = false; resolve(false); }
       toast(err.code === 1 ? "定位被拒絕：請到瀏覽器設定 → 網站權限 → 位置 開啟" : "暫時抓不到定位，使用上次位置");
       refreshChips();
-    }, { enableHighAccuracy: true, maximumAge: 15000, timeout: 20000 });
+    }, { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 });
   });
 }
 async function askNotif() {
@@ -263,13 +268,13 @@ function drawRadar(t = 0) {
   // 北方
   rg.fillStyle = "#fff6dc"; rg.font = "12px 'Press Start 2P', monospace"; rg.fillText("N", cx - 5, 18);
   hits = [];
-  if (!S.pos) {
+  if (!here()) {
     rg.fillStyle = "#fff6dc"; rg.font = "16px DotGothic16, monospace"; rg.textAlign = "center";
     rg.fillText("等待定位中…", cx, cy); rg.textAlign = "left"; return;
   }
-  const cosLat = Math.cos(S.pos.lat * Math.PI / 180);
+  const C0 = here(), cosLat = Math.cos(C0.lat * Math.PI / 180);
   nearby().forEach((s) => {
-    const ex = (s.lng - S.pos.lng) * M_PER_DEG * cosLat, ny = (s.lat - S.pos.lat) * M_PER_DEG;
+    const ex = (s.lng - C0.lng) * M_PER_DEG * cosLat, ny = (s.lat - C0.lat) * M_PER_DEG;
     const x = cx + ex * scale, y = cy - ny * scale;
     const ic = markerIcon(s);
     const bob = s.status === "open" && Math.floor(t / 600) % 2 ? 3 : 0;   // 任務符號上下跳
@@ -441,23 +446,23 @@ function loadLeaflet() {
   document.head.appendChild(s);
 }
 function initLmap() {
-  if (!S.pos || S.lmap) return;
+  if (!here() || S.lmap) return;
   $("#gmap").hidden = false; radar.hidden = true; $("#hudMode").textContent = "街道地圖";
-  S.lmap = L.map($("#gmap"), { zoomControl: false, attributionControl: true }).setView([S.pos.lat, S.pos.lng], 16);
+  S.lmap = L.map($("#gmap"), { zoomControl: false, attributionControl: true }).setView([here().lat, here().lng], 16);
   L.control.zoom({ position: "bottomleft" }).addTo(S.lmap);
   // OSM 免費底圖（CARTO 深色底圖已改成要金鑰）；深色夜景靠 CSS 的 .aok-dark-tiles 濾鏡
   L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19, className: "aok-dark-tiles",
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
   }).addTo(S.lmap);
-  S.lCircle = L.circle([S.pos.lat, S.pos.lng], { radius: CFG.RADIUS_M, color: "#ffd23f", weight: 3, fillColor: "#ffd23f", fillOpacity: 0.06, interactive: false }).addTo(S.lmap);
-  S.lUser = L.marker([S.pos.lat, S.pos.lng], { icon: L.icon({ iconUrl: heroURL(), iconSize: [28, 28], iconAnchor: [14, 14] }), zIndexOffset: 1000, interactive: false }).addTo(S.lmap);
+  S.lCircle = L.circle([here().lat, here().lng], { radius: CFG.RADIUS_M, color: "#ffd23f", weight: 3, fillColor: "#ffd23f", fillOpacity: 0.06, interactive: false }).addTo(S.lmap);
+  S.lUser = L.marker([here().lat, here().lng], { icon: L.icon({ iconUrl: heroURL(), iconSize: [28, 28], iconAnchor: [14, 14] }), zIndexOffset: 1000, interactive: false }).addTo(S.lmap);
   renderLmap();
 }
 function renderLmap() {
-  if (S.lReady && !S.lmap && S.pos) return initLmap();
-  if (!S.lmap || !S.pos) return;
-  S.lUser.setLatLng([S.pos.lat, S.pos.lng]); S.lCircle.setLatLng([S.pos.lat, S.pos.lng]);
+  if (S.lReady && !S.lmap && here()) return initLmap();
+  if (!S.lmap || !here()) return;
+  S.lUser.setLatLng([here().lat, here().lng]); S.lCircle.setLatLng([here().lat, here().lng]);
   const mi = meIcon();
   if (S.lUser.__k !== mi.key) { S.lUser.setIcon(L.icon({ iconUrl: mi.url, iconSize: [mi.w, mi.h], iconAnchor: [mi.w / 2, mi.h - 6], className: "px-marker" })); S.lUser.__k = mi.key; }
   const keep = new Set();
@@ -477,19 +482,19 @@ function renderLmap() {
 }
 function useRadar() { $("#gmap").hidden = true; radar.hidden = false; $("#hudMode").textContent = "點陣雷達"; sizeRadar(); }
 function initGmap() {
-  if (!S.pos) return;
+  if (!here()) return;
   $("#gmap").hidden = false; radar.hidden = true; $("#hudMode").textContent = "Google 地圖";
   S.gmap = new google.maps.Map($("#gmap"), {
-    center: S.pos, zoom: 16, styles: NIGHT_STYLE, disableDefaultUI: true, zoomControl: true, gestureHandling: "greedy", clickableIcons: false
+    center: here(), zoom: 16, styles: NIGHT_STYLE, disableDefaultUI: true, zoomControl: true, gestureHandling: "greedy", clickableIcons: false
   });
-  S.gCircle = new google.maps.Circle({ map: S.gmap, center: S.pos, radius: CFG.RADIUS_M, strokeColor: "#ffd23f", strokeWeight: 3, fillColor: "#ffd23f", fillOpacity: 0.06, clickable: false });
-  S.gUser = new google.maps.Marker({ map: S.gmap, position: S.pos, icon: { url: heroURL(), scaledSize: new google.maps.Size(28, 28), anchor: new google.maps.Point(14, 14) }, zIndex: 999 });
+  S.gCircle = new google.maps.Circle({ map: S.gmap, center: here(), radius: CFG.RADIUS_M, strokeColor: "#ffd23f", strokeWeight: 3, fillColor: "#ffd23f", fillOpacity: 0.06, clickable: false });
+  S.gUser = new google.maps.Marker({ map: S.gmap, position: here(), icon: { url: heroURL(), scaledSize: new google.maps.Size(28, 28), anchor: new google.maps.Point(14, 14) }, zIndex: 999 });
   renderGmap();
 }
 function renderGmap() {
-  if (S.gReady && !S.gmap && S.pos) return initGmap();
-  if (!S.gmap || !S.pos) return;
-  S.gUser.setPosition(S.pos); S.gCircle.setCenter(S.pos);
+  if (S.gReady && !S.gmap && here()) return initGmap();
+  if (!S.gmap || !here()) return;
+  S.gUser.setPosition(here()); S.gCircle.setCenter(here());
   const mi = meIcon();
   if (S.gUser.__k !== mi.key) { S.gUser.setIcon({ url: mi.url, scaledSize: new google.maps.Size(mi.w, mi.h), anchor: new google.maps.Point(mi.w / 2, mi.h - 6) }); S.gUser.__k = mi.key; }
   const keep = new Set();
@@ -503,11 +508,15 @@ function renderGmap() {
   });
   Object.keys(S.gMarkers).forEach((id) => { if (!keep.has(id)) { S.gMarkers[id].setMap(null); delete S.gMarkers[id]; } });
 }
+function centerMap(p, zoom) {
+  const c = p || here(); if (!c) return;
+  if (S.gmap) { S.gmap.panTo({ lat: c.lat, lng: c.lng }); S.gmap.setZoom(zoom || 16); }
+  else if (S.lmap) S.lmap.setView([c.lat, c.lng], zoom || 16);
+}
 $("#recenter").addEventListener("click", () => {
-  if (S.gmap && S.pos) { S.gmap.panTo(S.pos); S.gmap.setZoom(16); }
-  else if (S.lmap && S.pos) S.lmap.setView([S.pos.lat, S.pos.lng], 16);
-  else if (!S.pos) startGeo();
-  toast(S.pos ? "已回到你的位置（半徑 " + CFG.RADIUS_M + " 公尺）" : "正在取得定位…", 1600);
+  centerMap();
+  if (!here()) startGeo();
+  toast(here() ? (ROLE === "store" && shopAddr() ? "回到你的店（半徑 " : "已回到你的位置（半徑 ") + CFG.RADIUS_M + " 公尺）" : "正在取得定位…", 1600);
 });
 
 /* ---------- 身分：店家 / 勇者 ---------- */
@@ -533,7 +542,7 @@ function applyRole() {
   const cur = $$("nav.tabs button").find((b) => b.getAttribute("aria-selected") === "true");
   if (cur && cur.hidden) setTab("map");
   renderShopLine();
-  render();
+  render(); centerMap();
 }
 function renderShopLine() {
   const n = shopName();
@@ -723,6 +732,7 @@ $("#sosForm").addEventListener("submit", async (e) => {
   beep([988, 784, 988, 784]);
   toast("求救訊號已發出！地圖上你的店家招牌冒出「！」了\n附近 " + CFG.RADIUS_M + " 公尺的勇者會收到" + (addr ? "" : "\n（沒設定地址，用的是手機定位）"));
   $("#fDesc").value = ""; store.set("descDraft", "");
+  setTab("map"); centerMap({ lat: s.lat, lng: s.lng }, 17);   // 發完直接看到自己的招牌
 });
 
 /* ---------- 分頁 ---------- */
@@ -788,7 +798,21 @@ $("#btnLogoDel").addEventListener("click", () => {
 // 地址 → 座標：OpenStreetMap 的 Nominatim（免費、不用金鑰）
 const NOMI = "https://nominatim.openstreetmap.org/";
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+function googleGeocode(q) {
+  return new Promise((ok) => {
+    try {
+      new google.maps.Geocoder().geocode({ address: q, region: "tw" }, (res, st) => {
+        ok(st === "OK" ? res.map((r) => ({ display_name: r.formatted_address, lat: r.geometry.location.lat(), lon: r.geometry.location.lng() })) : null);
+      });
+    } catch (_) { ok(null); }
+  });
+}
 async function geocode(q) {
+  // 有 Google 金鑰時用 Google（台灣門牌最準），失敗才退回 OpenStreetMap
+  if (window.google && google.maps && google.maps.Geocoder) {
+    const g = await googleGeocode(q);
+    if (g && g.length) return { list: g, approx: false };
+  }
   const toHalf = (t) => t.replace(/[０-９]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 0xFEE0)).replace(/\s+/g, "");
   const base = toHalf(q);
   const tries = [base, base.replace(/\d+樓.*$/, "").replace(/之\d+/, ""), base.replace(/\d+號.*$/, "")]
@@ -808,7 +832,7 @@ async function reverseGeo(p) {
   } catch (_) { return ""; }
 }
 function saveAddr(a) {
-  store.set("shopAddr", a); renderAddr(); renderShopLine();
+  store.set("shopAddr", a); renderAddr(); renderShopLine(); render(); centerMap();
   beep([659, 784]); toast("店家位置已設定，發求救時招牌會立在這裡");
 }
 function renderAddr() {
@@ -845,6 +869,14 @@ $("#btnHere").addEventListener("click", async () => {
 });
 $("#btnAddrDel").addEventListener("click", () => { store.set("shopAddr", null); renderAddr(); renderShopLine(); toast("已清除店家位置"); });
 renderLogoUI(); renderAddr();
+$("#btnUpdate").addEventListener("click", async () => {
+  toast("正在下載最新版…");
+  try {
+    if ("serviceWorker" in navigator) for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister();
+    if (window.caches) for (const k of await caches.keys()) await caches.delete(k);
+  } catch (_) {}
+  location.reload();
+});
 $("#ver").textContent = VERSION + "・" + (DB.mode === "cloud" ? "雲端同步" : "示範模式");
 applyRole();
 

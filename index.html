@@ -238,6 +238,7 @@ form{display:grid;gap:10px}
       <span class="tag">範圍 <b id="hudRange">500M</b></span>
       <span class="tag">求救中 <b id="hudOpen">0</b></span>
       <span class="tag" id="hudMode">點陣雷達</span>
+      <span class="tag" id="hudAcc" hidden></span>
     </div>
     <button class="btn ghost" id="recenter" type="button" aria-label="回到我的位置">◎ 回到我</button>
     <div id="offline" hidden>離線中：顯示上次的資料，你發的求救會在恢復連線後自動送出</div>
@@ -338,6 +339,7 @@ form{display:grid;gap:10px}
 
       <h3>設定</h3>
       <div style="display:grid;gap:8px">
+        <button class="btn red wide" type="button" id="btnUpdate">更新到最新版</button>
         <button class="btn ghost wide" type="button" id="btnInstall" hidden>加到主畫面</button>
         <button class="btn ghost wide" type="button" id="btnPerm">重新設定權限</button>
         <button class="btn ghost wide" type="button" id="btnTestNotif">測試通知</button>
