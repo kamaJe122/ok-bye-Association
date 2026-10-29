@@ -1,11 +1,12 @@
-/* 奧客互助協會 v1.5.3
+/* 奧客互助協會 v1.6.0
    創意發起人：Popcorn ｜ 程式美編設計：Kama
    純 HTML + JS，PWA：可離線、可加到主畫面（Android / iOS / 電腦） */
 (() => {
 "use strict";
 const CFG = Object.assign({ GMAPS_KEY: "", FIREBASE: null, RADIUS_M: 500, SOS_EXPIRE_MIN: 60, DEMO_SEED: true }, window.AOK_CONFIG || {});
-const VERSION = "v1.5.3";
+const VERSION = "v1.6.0";
 const AV = window.AokAvatar;
+const shade = AV.shade;
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 
@@ -34,7 +35,8 @@ function offset(p, northM, eastM) {
 const fmtDist = (m) => m < 1000 ? Math.round(m) + " 公尺" : (m / 1000).toFixed(1) + " 公里";
 const ago = (t) => { const m = Math.round((Date.now() - t) / 60000); return m < 1 ? "剛剛" : m + " 分鐘前"; };
 const code6 = () => "AOK-" + Math.random().toString(36).slice(2, 6).toUpperCase() + "-" + Math.floor(Math.random() * 90 + 10);
-const LV = { 1: "Lv1 碎念", 2: "Lv2 大聲", 3: "Lv3 失控" };
+const LV = { 1: "Lv1 碎念", 2: "Lv2 大聲", 3: "Lv3 失控", 4: "Lv4 暴走", 5: "Lv5 傳說" };
+const stars = (n) => "★".repeat(n) + "☆".repeat(5 - n);
 const ST = { open: "求救中", accepted: "勇者前往中", reported: "待店家確認", done: "已解決" };
 
 /* ---------- 點陣圖示（7x7） ---------- */
@@ -385,7 +387,7 @@ function signCanvas(s, withQuest) {
   else ICONS.shop.forEach((row, j) => [...row].forEach((ch, i) => { if (PAL[ch]) { g.fillStyle = PAL[ch]; g.fillRect(B + 3 + i * 6, sy + B + 3 + j * 6, 6, 6); } }));
   // 奧客等級火焰（右下角）
   if (withQuest && s.status === "open") {
-    const p = 1 + (s.level || 1), fz = 7 * p;
+    const p = [2, 2, 3, 3, 4][(s.level || 1) - 1] || 2, fz = 7 * p;
     ICONS.fire.forEach((row, j) => [...row].forEach((ch, i) => { if (PAL[ch]) { g.fillStyle = PAL[ch]; g.fillRect(signW - fz + i * p, sy + signH - fz + j * p, p, p); } }));
   }
   // 任務符號泡泡
@@ -599,13 +601,13 @@ function card(s, ctx) {
     if (s.status === "done") body = `${s.heroId ? heroBox(s) : ""}${s.code ? `<div class="meta">已發給勇者的兌換碼</div><div class="coupon">${esc(s.code)}</div>` : ""}`;
   }
   return `<article class="px card" id="sos-${id}">
-    <div class="row">${s.logo ? `<img class="logo-sm" src="${esc(s.logo)}" alt="">` : ""}<span class="name">${esc(s.store)}</span><span class="lv lv${s.level}">${LV[s.level]}</span><span class="st ${esc(s.status)}">${ST[s.status] || ""}</span></div>
+    <div class="row">${s.logo ? `<img class="logo-sm" src="${esc(s.logo)}" alt="">` : ""}<span class="name">${esc(s.store)}</span><span class="lv lv${s.level}" title="${stars(s.level)}">${LV[s.level]} <span class="lv-stars">${"★".repeat(s.level)}</span></span><span class="st ${esc(s.status)}">${ST[s.status] || ""}</span></div>
     <div class="meta">${S.pos ? fmtDist(distM(S.pos, s)) + "・" : ""}${ago(s.createdAt)}${s.addr ? `<br>地址：${esc(s.addr)}` : ""}</div>
     ${s.look && s.status !== "done" ? lookBox(s.look, "", "奧客外觀") : ""}
     ${s.desc ? `<div>${esc(s.desc)}</div>` : ""}
     <div class="reward">獎勵：${esc(s.reward)}</div>
     ${body}
-    ${act || nav ? `<div class="row">${act}${nav}</div>` : ""}
+    <div class="row">${act}${nav}<button class="btn ghost sm" type="button" data-mkcard="${id}">做成奧客卡牌</button></div>
   </article>`;
 }
 function render() {
@@ -944,6 +946,187 @@ $("#btnHere").addEventListener("click", async () => {
 });
 $("#btnAddrDel").addEventListener("click", () => { store.set("shopAddr", null); renderAddr(); renderShopLine(); toast("已清除店家位置"); });
 renderLogoUI(); renderAddr();
+/* ---------- 奧客卡牌：做成遊戲卡片分享給朋友 ---------- */
+const RARITY = { 1: ["N", "#9aa0aa"], 2: ["R", "#3fae5a"], 3: ["SR", "#2d64c8"], 4: ["SSR", "#8a3ab9"], 5: ["UR", "#f2c23b"] };
+const SKILLS = ["大聲公", "插隊", "過期券使者", "召喚店長", "強制退費", "佔位不點餐", "殺價", "拍桌", "一星負評威脅", "賴著不走", "挑剔找碴", "酒後狂暴", "碎念連發", "插座霸主"];
+const SKILL_HINT = [[/退|錢/, "強制退費"], [/過期|券/, "過期券使者"], [/大聲|叫|吼|罵/, "大聲公"], [/插隊|排隊/, "插隊"], [/店長|主管/, "召喚店長"],
+  [/插座/, "插座霸主"], [/位|佔/, "佔位不點餐"], [/酒|醉/, "酒後狂暴"], [/拍桌|摔/, "拍桌"], [/殺價|便宜|折扣/, "殺價"], [/評論|負評|星/, "一星負評威脅"], [/碎念|唸/, "碎念連發"]];
+const STAR = ["....k....", "...kyk...", "kkkkyykkk", "kyyyyyyyk", ".kyyyyyk.", "..kyyyk..", ".kyykyyk.", ".kyk.kyk.", ".kk...kk."];
+const cards = () => store.get("cards", []);
+const fmtTime = (t) => { const d = new Date(t), p = (n) => String(n).padStart(2, "0"); return `${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; };
+function fitText(g, t, maxW) {
+  if (g.measureText(t).width <= maxW) return t;
+  while (t.length && g.measureText(t + "…").width > maxW) t = t.slice(0, -1);
+  return t + "…";
+}
+async function fontsReady() {
+  try { await Promise.race([Promise.all([document.fonts.load("16px DotGothic16"), document.fonts.load("10px 'Press Start 2P'")]), wait(1500)]); } catch (_) {}
+}
+// 卡片設計：360×504（5:7 卡牌比例），scale=2 輸出 720×1008 高解析度圖
+async function renderCard(cv, c, scale) {
+  scale = scale || 2;
+  const W = 360, H = 504, [rar, fc] = RARITY[c.stars] || RARITY[1], fcd = shade(fc, 0.7);
+  cv.width = W * scale; cv.height = H * scale;
+  const g = cv.getContext("2d"); g.setTransform(scale, 0, 0, scale, 0, 0); g.imageSmoothingEnabled = false;
+  const F = (px, latin) => (latin ? px + "px 'Press Start 2P', monospace" : px + "px DotGothic16, 'PingFang TC', 'Microsoft JhengHei', sans-serif");
+  // 外框
+  g.fillStyle = "#1a1020"; g.fillRect(0, 0, W, H);
+  g.fillStyle = fc; g.fillRect(6, 6, W - 12, H - 12);
+  g.fillStyle = "#fff6dc"; g.fillRect(12, 12, W - 24, H - 24);
+  // 標題列：綽號＋稀有度
+  g.fillStyle = fcd; g.fillRect(12, 12, W - 24, 46);
+  g.fillStyle = "#fff6dc"; g.font = F(24); g.textBaseline = "middle";
+  g.fillText(fitText(g, c.nick || "無名奧客", 240), 24, 36);
+  g.font = F(14, true); g.textAlign = "right"; g.fillStyle = c.stars >= 5 ? "#1a1020" : "#ffd23f"; g.fillText(rar, W - 22, 37); g.textAlign = "left";
+  // 星等
+  for (let i = 0; i < 5; i++) STAR.forEach((r, j) => [...r].forEach((ch, k) => {
+    if (ch === ".") return; g.fillStyle = ch === "k" ? "#1a1020" : i < c.stars ? "#ffd23f" : "#c9c0a8"; g.fillRect(22 + i * 24 + k * 2, 64 + j * 2, 2, 2);
+  }));
+  g.fillStyle = "#1a1020"; g.font = F(15); g.textAlign = "right"; g.fillText(LV[c.stars] || "", W - 24, 73); g.textAlign = "left";
+  // 插畫區：夜空＋地面＋奧客本人
+  const ax = 24, ay = 92, aw = W - 48, ah = 196;
+  g.fillStyle = "#1a1020"; g.fillRect(ax - 3, ay - 3, aw + 6, ah + 6);
+  g.fillStyle = "#1d4596"; g.fillRect(ax, ay, aw, ah);
+  g.fillStyle = "#fff6dc"; for (let i = 0; i < 18; i++) g.fillRect(ax + ((i * 67) % aw), ay + ((i * 29) % (ah - 50)), 2, 2);
+  g.fillStyle = "#3fae5a"; g.fillRect(ax, ay + ah - 30, aw, 6);
+  g.fillStyle = "#6b4a2b"; g.fillRect(ax, ay + ah - 24, aw, 24);
+  if (c.logo) { try { const im = await loadImg(c.logo); g.fillStyle = "#1a1020"; g.fillRect(ax + 10, ay + 10, 40, 40); g.fillStyle = "#f2c23b"; g.fillRect(ax + 12, ay + 12, 36, 36); g.drawImage(im, ax + 14, ay + 14, 32, 32); } catch (_) {} }
+  // 奧客等級火焰
+  const fp = 2 + Math.ceil(c.stars / 2);
+  ICONS.fire.forEach((r, j) => [...r].forEach((ch, k) => { if (PAL[ch]) { g.fillStyle = PAL[ch]; g.fillRect(ax + aw - 14 - 7 * fp + k * fp, ay + 10 + j * fp, fp, fp); } }));
+  const sp = AV.sprite(c.look || AV.DEFAULT, 4);
+  g.drawImage(sp, Math.round(ax + aw / 2 - sp.width / 2), ay + ah - 26 - sp.height + 4);
+  g.fillStyle = "rgba(255,246,220,.7)"; g.font = F(7, true); g.fillText("OK BYE", ax + aw - 52, ay + ah - 12);
+  // 類型列
+  const L = AV.normalize(c.look || AV.DEFAULT), ageN = AV.OPT.age.find((o) => o.v === L.age).n, gN = L.gender === "f" ? "女" : "男";
+  g.fillStyle = fc; g.fillRect(24, 296, W - 48, 22);
+  g.fillStyle = c.stars >= 5 ? "#1a1020" : "#fff6dc"; g.font = F(14); g.fillText(`【${ageN}型奧客・${gN}】`, 30, 308);
+  // 技能
+  g.fillStyle = "#1a1020"; g.font = F(13); g.fillText("技能", 26, 334);
+  g.fillStyle = "#c9b98a"; g.fillRect(60, 333, W - 86, 2);
+  (c.skills.length ? c.skills : ["碎念連發"]).slice(0, 4).forEach((sk, i) => {
+    const y = 356 + i * 23;
+    g.fillStyle = fc; g.fillRect(28, y - 5, 10, 10); g.fillStyle = "#1a1020"; g.fillRect(31, y - 2, 4, 4);
+    g.font = F(17); g.fillStyle = "#1a1020"; g.fillText(fitText(g, sk, W - 100), 46, y + 1);
+  });
+  // 事蹟（描述）
+  if (c.desc) { g.font = F(12); g.fillStyle = "#6b5a48"; g.fillText(fitText(g, "「" + c.desc + "」", W - 52), 26, 452); }
+  // 人物・地點・時間
+  g.fillStyle = "#e9dcb4"; g.fillRect(18, 462, W - 36, 34);
+  g.fillStyle = "#1a1020"; g.font = F(12);
+  g.fillText(fitText(g, "地點：" + (c.place || "某間店"), W - 52), 26, 472);
+  g.fillText("時間：" + fmtTime(c.time || Date.now()), 26, 488);
+  g.font = F(6, true); g.fillStyle = "#6b5a48"; g.textAlign = "right"; g.fillText("奧客互助協會", W - 24, 488); g.textAlign = "left";
+  return cv;
+}
+
+// 卡牌編輯器
+let CE = null, cardLookEditor = null;
+const PRIVATE = /09\d{2}[-\s]?\d{3}[-\s]?\d{3}|\d{6,}|@[\w.]+\.\w+/;
+function cardFromSos(s) {
+  const t = (s.desc || "") + " " + (s.store || "");
+  const skills = [...new Set(SKILL_HINT.filter(([re]) => re.test(t)).map(([, n]) => n))].slice(0, 3);
+  return { id: uid(), nick: "", stars: Math.min(5, Math.max(1, s.level || 1)), skills: skills.length ? skills : ["碎念連發"],
+    place: s.store + (s.addr ? "・" + s.addr.replace(/^(.{0,6}?[市縣])/, "").slice(0, 14) : ""), time: s.createdAt || Date.now(),
+    look: AV.normalize(s.look || AV.DEFAULT), logo: s.logo || "", desc: (s.desc || "").slice(0, 40) };
+}
+function openCardEditor(c, isNew) {
+  CE = JSON.parse(JSON.stringify(c)); CE._new = !!isNew;
+  $("#cNick").value = CE.nick; $("#cPlace").value = CE.place; $("#cDesc").value = CE.desc || "";
+  const d = new Date(CE.time), p = (n) => String(n).padStart(2, "0");
+  $("#cTime").value = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+  if (!cardLookEditor) cardLookEditor = AV.mountEditor($("#cLookEditor"), CE.look, (l) => { CE.look = l; cardChanged(); });
+  else cardLookEditor.set(CE.look);
+  $("#cDelete").hidden = CE._new;
+  $("#cardModal").hidden = false; document.body.classList.add("modal-open");
+  renderCardControls(); cardChanged();
+}
+function renderCardControls() {
+  $$("#cStars [data-star]").forEach((b) => b.setAttribute("aria-checked", String(+b.dataset.star === CE.stars)));
+  $("#cStarName").textContent = (RARITY[CE.stars][0]) + "・" + LV[CE.stars];
+  const all = [...new Set(SKILLS.concat(CE.skills))];
+  $("#cSkills").innerHTML = all.map((s) => `<button type="button" class="ava-opt" data-skill="${esc(s)}" aria-pressed="${CE.skills.includes(s)}">${esc(s)}</button>`).join("");
+  $("#cSkillCount").textContent = CE.skills.length + "/4";
+}
+let cardTimer = 0;
+function cardChanged() {
+  if (!CE) return;
+  if (CE._new) store.set("cardDraft", CE);
+  clearTimeout(cardTimer);
+  cardTimer = setTimeout(async () => { await fontsReady(); renderCard($("#cPreview"), CE, 2); }, 60);
+}
+function readCardForm() {
+  CE.nick = $("#cNick").value.trim(); CE.place = $("#cPlace").value.trim(); CE.desc = $("#cDesc").value.trim();
+  const t = Date.parse($("#cTime").value); if (!isNaN(t)) CE.time = t;
+}
+["#cNick", "#cPlace", "#cDesc", "#cTime"].forEach((sel) => $(sel).addEventListener("input", () => { readCardForm(); cardChanged(); }));
+$("#cStars").addEventListener("click", (e) => { const b = e.target.closest("[data-star]"); if (!b) return; CE.stars = +b.dataset.star; renderCardControls(); cardChanged(); });
+$("#cSkills").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-skill]"); if (!b) return;
+  const s = b.dataset.skill, i = CE.skills.indexOf(s);
+  if (i >= 0) CE.skills.splice(i, 1); else if (CE.skills.length >= 4) return toast("技能最多 4 個"); else CE.skills.push(s);
+  renderCardControls(); cardChanged();
+});
+$("#cSkillAdd").addEventListener("click", () => {
+  const v = $("#cSkillNew").value.trim().slice(0, 10); if (!v) return;
+  if (PRIVATE.test(v)) return toast("技能裡不要放電話、帳號或數字編號");
+  if (CE.skills.length >= 4) return toast("技能最多 4 個，先取消一個");
+  if (!CE.skills.includes(v)) CE.skills.push(v);
+  $("#cSkillNew").value = ""; renderCardControls(); cardChanged();
+});
+$("#cLookToggle").addEventListener("click", () => { const e = $("#cLookEditor"); e.hidden = !e.hidden; $("#cLookToggle").textContent = e.hidden ? "修改奧客長相" : "收起長相編輯"; });
+function cardOk() {
+  readCardForm();
+  if (PRIVATE.test(CE.nick + CE.desc + CE.place)) { toast("為了保護隱私，卡牌上不要寫電話、帳號或可以認出本人的資訊"); return false; }
+  if (!CE.nick) { toast("幫奧客取一個綽號"); $("#cNick").focus(); return false; }
+  return true;
+}
+function saveCard() {
+  const list = cards().filter((x) => x.id !== CE.id), c = Object.assign({}, CE); delete c._new;
+  list.unshift(c); store.set("cards", list.slice(0, 60)); if (CE._new) store.set("cardDraft", null);
+  CE._new = false; $("#cDelete").hidden = false; renderCardList();
+}
+$("#cSave").addEventListener("click", () => { if (!cardOk()) return; saveCard(); beep([659, 784, 988]); toast("已收藏到「我的」→ 奧客卡牌"); });
+$("#cShare").addEventListener("click", async () => {
+  if (!cardOk()) return; saveCard();
+  const cv = await renderCard(document.createElement("canvas"), CE, 2);
+  const blob = await new Promise((r) => cv.toBlob(r, "image/png"));
+  const name = "奧客卡牌-" + CE.nick + ".png", file = new File([blob], name, { type: "image/png" });
+  const text = `【奧客卡牌】${CE.nick} ${"★".repeat(CE.stars)}\n技能：${CE.skills.join("、")}\n${location.origin + location.pathname}`;
+  try {
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: "奧客卡牌：" + CE.nick, text }); return; }
+  } catch (e) { if (e && e.name === "AbortError") return; }
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  toast("這台裝置不支援直接分享，已下載卡牌圖片，可以從相簿傳給朋友");
+});
+$("#cDelete").addEventListener("click", () => {
+  const b = $("#cDelete");
+  if (b.dataset.armed !== "1") { b.dataset.armed = "1"; b.textContent = "再按一次刪除"; setTimeout(() => { b.dataset.armed = ""; b.textContent = "刪除"; }, 3000); return; }
+  store.set("cards", cards().filter((x) => x.id !== CE.id)); closeCardEditor(); renderCardList(); toast("已刪除卡牌");
+});
+function closeCardEditor() { $("#cardModal").hidden = true; document.body.classList.remove("modal-open"); CE = null; }
+$("#cClose").addEventListener("click", closeCardEditor);
+$("#btnNewCard").addEventListener("click", () => {
+  const d = store.get("cardDraft", null);
+  openCardEditor(d && d.id ? d : { id: uid(), nick: "", stars: 1, skills: ["碎念連發"], place: shopName() || "", time: Date.now(), look: AV.normalize(store.get("look", AV.DEFAULT)), logo: shopLogo(), desc: "" }, true);
+});
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-mkcard]"); if (!b) return;
+  const s = S.list.find((x) => x.id === b.dataset.mkcard); if (s) openCardEditor(cardFromSos(s), true);
+});
+async function renderCardList() {
+  const list = cards(), box = $("#cardList");
+  $("#cardEmpty").hidden = !!list.length;
+  box.innerHTML = list.map((c) => `<button type="button" class="card-thumb" data-open-card="${esc(c.id)}" aria-label="${esc(c.nick)} ${c.stars} 星"><canvas></canvas></button>`).join("");
+  await fontsReady();
+  [...box.querySelectorAll("[data-open-card]")].forEach((b, i) => renderCard(b.querySelector("canvas"), list[i], 1));
+}
+$("#cardList").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-open-card]"); if (!b) return;
+  const c = cards().find((x) => x.id === b.dataset.openCard); if (c) openCardEditor(c, false);
+});
+renderCardList();
 $("#btnUpdate").addEventListener("click", async () => {
   toast("正在下載最新版…");
   try {

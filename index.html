@@ -100,7 +100,8 @@ nav.tabs button:focus-visible{outline:3px dashed var(--fire-hi);outline-offset:-
 .card .meta{font-size:13px;color:#5b4a3a}
 .card .reward{font-size:14px;background:#ffe9a8;padding:4px 8px;border:2px dashed var(--ink)}
 .lv{font-family:var(--f-latin);font-size:10px;padding:3px 6px;border:2px solid var(--ink);color:var(--paper)}
-.lv1{background:var(--warn);color:var(--ink)} .lv2{background:var(--fire)} .lv3{background:var(--bad)}
+.lv1{background:var(--warn);color:var(--ink)} .lv2{background:var(--fire)} .lv3{background:var(--bad)} .lv4{background:#8a3ab9} .lv5{background:linear-gradient(90deg,#ffd23f,#ff7a1a);color:var(--ink)}
+.lv-stars{letter-spacing:-1px}
 .st{font-size:12px;padding:2px 6px;border:2px solid var(--ink)}
 .st.open{background:var(--bad);color:var(--paper)} .st.accepted{background:var(--gold)} .st.done{background:var(--grass)}
 .empty{color:var(--mute);text-align:center;padding:16px 8px}
@@ -165,7 +166,7 @@ nav.tabs{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:1fr}
 /* ===== 奧客外觀 ===== */
 .px-marker{image-rendering:pixelated}
 .who{display:flex;gap:10px;align-items:flex-end;background:var(--sky);color:var(--paper);padding:6px 10px;border:3px solid var(--ink);font-size:13px}
-.who canvas{image-rendering:pixelated;flex:none;width:54px;height:102px}
+.who canvas{image-rendering:pixelated;flex:none;width:auto;height:102px;max-width:40%}
 .who div{min-width:0}
 .who-t{display:block;font-size:11px;color:var(--fire-hi)}
 .look-box{display:grid;gap:8px}
@@ -174,7 +175,7 @@ nav.tabs{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:1fr}
 .ava-editor{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;align-items:start}
 .ava-stage{position:sticky;top:0;display:grid;gap:6px;justify-items:center;background:var(--sky);border:3px solid var(--ink);padding:8px 4px;
   background-image:linear-gradient(transparent 82%,var(--grass) 82%,var(--grass) 86%,var(--ground) 86%)}
-.ava-preview{image-rendering:pixelated;width:90px;height:170px;display:block}
+.ava-preview{image-rendering:pixelated;width:auto;height:170px;max-width:130px;object-fit:contain;display:block}
 .ava-actions{display:grid;gap:2px}
 .ava-actions .btn{padding:4px 8px;font-size:13px}
 .ava-groups{display:grid;gap:8px;min-width:0}
@@ -227,6 +228,30 @@ form{display:grid;gap:10px}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 @media (min-width:900px){
   .sheet{left:auto;right:16px;bottom:16px;top:16px;width:420px;max-height:none;border:4px solid var(--ink)}
+}
+/* ===== 奧客卡牌 ===== */
+.levels{grid-template-columns:repeat(auto-fit,minmax(58px,1fr))!important}
+.levels label span{display:grid;line-height:1.25;justify-items:center}
+.levels label b{font-weight:normal;font-size:15px}
+.levels label small{font-size:10px;color:var(--fire-hi);letter-spacing:-1px}
+.card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:10px}
+.card-thumb{appearance:none;border:0;padding:0;background:none;cursor:pointer}
+.card-thumb canvas{width:100%;height:auto;display:block;image-rendering:pixelated;box-shadow:0 4px 0 rgba(0,0,0,.35)}
+.card-thumb:focus-visible{outline:3px dashed var(--fire-hi);outline-offset:3px}
+.cmodal{position:fixed;inset:0;z-index:56;display:grid;grid-template-rows:auto minmax(0,1fr) auto;background:var(--night)}
+.cm-bar{display:flex;align-items:center;justify-content:space-between}
+.cm-body{overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;touch-action:pan-y;padding:14px 16px;display:grid;gap:14px;align-content:start}
+.cm-preview{width:min(100%,300px);height:auto;aspect-ratio:360/504;justify-self:center;image-rendering:pixelated;box-shadow:0 6px 0 rgba(0,0,0,.4)}
+.cm-form{display:grid;gap:10px;min-width:0}
+.cm-form>*{min-width:0}
+.cm-add{flex-wrap:nowrap}
+.cm-add input{flex:1;min-width:0}
+.cm-actions{grid-template-columns:repeat(auto-fit,minmax(0,1fr))}
+.ava-opt[aria-pressed="true"]{background:var(--temple);color:var(--paper)}
+body.modal-open{overflow:hidden}
+@media (min-width:760px){
+  .cm-body{grid-template-columns:minmax(260px,360px) minmax(0,1fr);align-items:start}
+  .cm-preview{position:sticky;top:0;width:100%}
 }
 /* ===== 全裝置適應：不准橫向滑動、不准溢出 ===== */
 /* 元兇：隱藏的 Lv 單選鈕繼承了 input 的 100% 寬度，撐出面板 270px → 鎖成 1px 並關在 label 裡 */
@@ -313,9 +338,11 @@ header h1{font-size:clamp(16px,5vw,20px)}
         <div>
           <label>奧客等級</label>
           <div class="levels">
-            <label><input type="radio" name="level" value="1" id="lv1" checked><span>Lv1 碎念</span></label>
-            <label><input type="radio" name="level" value="2" id="lv2"><span>Lv2 大聲</span></label>
-            <label><input type="radio" name="level" value="3" id="lv3"><span>Lv3 失控</span></label>
+            <label><input type="radio" name="level" value="1" id="lv1" checked><span>Lv1<b>碎念</b><small>★</small></span></label>
+            <label><input type="radio" name="level" value="2" id="lv2"><span>Lv2<b>大聲</b><small>★★</small></span></label>
+            <label><input type="radio" name="level" value="3" id="lv3"><span>Lv3<b>失控</b><small>★★★</small></span></label>
+            <label><input type="radio" name="level" value="4" id="lv4"><span>Lv4<b>暴走</b><small>★★★★</small></span></label>
+            <label><input type="radio" name="level" value="5" id="lv5"><span>Lv5<b>傳說</b><small>★★★★★</small></span></label>
           </div>
         </div>
         <div class="look-box">
@@ -394,6 +421,12 @@ header h1{font-size:clamp(16px,5vw,20px)}
         <div id="heroLookEditor" class="ava-editor"></div>
       </div>
 
+      <h3>奧客卡牌</h3>
+      <p class="note">把遇過的奧客做成遊戲卡牌，分享給朋友看。任務卡上也有「做成奧客卡牌」。</p>
+      <button class="btn red wide" type="button" id="btnNewCard">新增奧客卡牌</button>
+      <p class="empty" id="cardEmpty">還沒有卡牌。</p>
+      <div class="card-grid" id="cardList"></div>
+
       <h3>設定</h3>
       <div style="display:grid;gap:8px">
         <button class="btn red wide" type="button" id="btnUpdate">更新到最新版</button>
@@ -446,6 +479,39 @@ header h1{font-size:clamp(16px,5vw,20px)}
     <button class="btn red wide" type="button" id="btnStart">開始冒險（允許權限）</button>
     <button class="btn ghost wide" type="button" id="btnSkip">先逛逛</button>
     <p class="credits">創意發起人：Popcorn ｜ 程式美編設計：Kama</p>
+  </div>
+</div>
+
+<!-- 奧客卡牌編輯器 -->
+<div id="cardModal" class="cmodal" hidden role="dialog" aria-label="奧客卡牌">
+  <div class="picker-bar cm-bar"><b>奧客卡牌</b><button type="button" class="btn ghost sm" id="cClose">關閉</button></div>
+  <div class="cm-body">
+    <canvas id="cPreview" class="cm-preview" aria-label="卡牌預覽"></canvas>
+    <div class="cm-form">
+      <label for="cNick">奧客綽號<input id="cNick" maxlength="10" placeholder="例：雞排退錢哥"></label>
+      <div><span class="ava-label">等級（幾級就幾顆星）・<b id="cStarName"></b></span>
+        <div class="ava-opts" id="cStars" role="radiogroup" aria-label="星等">
+          <button type="button" class="ava-opt" data-star="1" role="radio">★</button>
+          <button type="button" class="ava-opt" data-star="2" role="radio">★★</button>
+          <button type="button" class="ava-opt" data-star="3" role="radio">★★★</button>
+          <button type="button" class="ava-opt" data-star="4" role="radio">★★★★</button>
+          <button type="button" class="ava-opt" data-star="5" role="radio">★★★★★</button>
+        </div></div>
+      <div><span class="ava-label">技能（他做了什麼，最多 4 個）<b id="cSkillCount"></b></span>
+        <div class="ava-opts" id="cSkills"></div>
+        <div class="row cm-add"><input id="cSkillNew" maxlength="10" placeholder="自己寫一個技能"><button type="button" class="btn ghost sm" id="cSkillAdd">新增</button></div></div>
+      <label for="cDesc">事蹟（一句話）<input id="cDesc" maxlength="40" placeholder="例：說雞排太大塊要退錢"></label>
+      <label for="cPlace">地點<input id="cPlace" maxlength="30" placeholder="例：金茂宜蘆洲店"></label>
+      <label for="cTime">時間<input id="cTime" type="datetime-local"></label>
+      <button type="button" class="btn ghost wide" id="cLookToggle">修改奧客長相</button>
+      <div id="cLookEditor" class="ava-editor" hidden></div>
+      <p class="note">卡牌只用綽號和點陣人物。請不要寫真名、電話或其他能認出本人的資訊。</p>
+    </div>
+  </div>
+  <div class="picker-actions cm-actions">
+    <button type="button" class="btn ghost" id="cDelete" hidden>刪除</button>
+    <button type="button" class="btn ghost" id="cSave">收藏</button>
+    <button type="button" class="btn green" id="cShare">分享給朋友</button>
   </div>
 </div>
 
