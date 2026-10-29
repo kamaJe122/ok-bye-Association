@@ -7,16 +7,13 @@ window.AOK_CONFIG = {
 
   // 2) 雲端同步（留空 = 示範模式：只在同一台裝置的分頁之間同步）
   //    填入 Firebase Realtime Database 設定後，所有人的手機就會即時看到求救
-  FIREBASE: null,
-  /* 範例：
   FIREBASE: {
-    apiKey: "xxxx",
-    authDomain: "aok-help.firebaseapp.com",
-    databaseURL: "https://aok-help-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "aok-help",
-    appId: "1:xxxx:web:xxxx"
+    apiKey: "AIzaSyAG-8k7aBpq1iK9PsIdfbms4qItJyrdTWY",
+    authDomain: "okbye-900cb.firebaseapp.com",
+    databaseURL: "https://okbye-900cb-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "okbye-900cb",
+    appId: "1:855567297150:web:23dea21635915ddc94462f"
   },
-  */
 
   RADIUS_M: 500,          // 顯示範圍（公尺）
   SOS_EXPIRE_MIN: 60,     // 求救訊號幾分鐘後自動過期
