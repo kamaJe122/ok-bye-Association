@@ -4,25 +4,28 @@
 (function () {
   "use strict";
   const C = (v, n, c) => ({ v, n, c });
-  // 8 色：紅橙黃綠藍紫黑白
+  // 9 色：紅橙黃綠藍紫咖啡黑白
   const COLORS = (pal) => [C("red", "紅", pal[0]), C("orange", "橙", pal[1]), C("yellow", "黃", pal[2]), C("green", "綠", pal[3]),
-    C("blue", "藍", pal[4]), C("purple", "紫", pal[5]), C("black", "黑", pal[6]), C("white", "白", pal[7])];
+    C("blue", "藍", pal[4]), C("purple", "紫", pal[5]), C("brown", "咖啡", pal[6]), C("black", "黑", pal[7]), C("white", "白", pal[8])];
   const OPT = {
     gender: [{ v: "m", n: "男生" }, { v: "f", n: "女生" }],
     age: [{ v: "kid", n: "小朋友" }, { v: "student", n: "學生" }, { v: "office", n: "上班族" }, { v: "parent", n: "爸爸媽媽" },
       { v: "auntie", n: "婆婆媽媽" }, { v: "weird", n: "奇怪大哥" }, { v: "elder", n: "爺爺奶奶" }],
-    hairColor: COLORS(["#c8402e", "#d9782a", "#f2c23b", "#4c9a50", "#3a6ad8", "#7a4ab0", "#2a2230", "#ececf2"]),
-    hairLen: [{ v: "long", n: "長髮" }, { v: "short", n: "短髮" }, { v: "curly", n: "捲髮" }, { v: "perm", n: "大媽長捲髮" }],
+    hairColor: COLORS(["#c8402e", "#d9782a", "#f2c23b", "#4c9a50", "#3a6ad8", "#7a4ab0", "#6b4226", "#2a2230", "#ececf2"]),
+    // 台灣街上常見的髮型
+    hairLen: [{ v: "short", n: "短髮" }, { v: "buzz", n: "平頭" }, { v: "sidepart", n: "旁分油頭" }, { v: "middle", n: "韓系中分" },
+      { v: "curly", n: "自然捲" }, { v: "bob", n: "學生頭" }, { v: "long", n: "長直髮" }, { v: "ponytail", n: "馬尾" },
+      { v: "bun", n: "包包頭" }, { v: "wave", n: "大波浪捲" }, { v: "perm", n: "大媽長捲髮" }, { v: "granny", n: "阿嬤白蓬捲" }],
     hat: [{ v: "none", n: "沒戴" }, { v: "cap", n: "棒球帽" }, { v: "beanie", n: "毛帽" }, { v: "sunhat", n: "遮陽帽" }],
-    hatColor: COLORS(["#e04a3a", "#f08a2a", "#f2c23b", "#4caf50", "#3a78d8", "#8e5bd0", "#2e2a33", "#f6f6f6"]),
+    hatColor: COLORS(["#e04a3a", "#f08a2a", "#f2c23b", "#4caf50", "#3a78d8", "#8e5bd0", "#8a5a36", "#2e2a33", "#f6f6f6"]),
     glasses: [{ v: "none", n: "沒戴" }, { v: "round", n: "圓框" }, { v: "square", n: "方框" }],
     glassesSize: [{ v: "small", n: "小" }, { v: "big", n: "大" }],
     topLen: [{ v: "long", n: "長袖" }, { v: "short", n: "短袖" }],
-    topColor: COLORS(["#e04a3a", "#f08a2a", "#f2c23b", "#4caf50", "#3a78d8", "#8e5bd0", "#2e2a33", "#f6f6f6"]),
+    topColor: COLORS(["#e04a3a", "#f08a2a", "#f2c23b", "#4caf50", "#3a78d8", "#8e5bd0", "#8a5a36", "#2e2a33", "#f6f6f6"]),
     bottom: [{ v: "pants", n: "長褲" }, { v: "shorts", n: "短褲" }, { v: "longskirt", n: "長裙" }, { v: "skirt", n: "短裙" }],
-    bottomColor: COLORS(["#c43a2e", "#d97a2a", "#e0b23a", "#3f8f45", "#3b5f9e", "#6e4aa0", "#2a2630", "#eeeae0"]),
+    bottomColor: COLORS(["#c43a2e", "#d97a2a", "#e0b23a", "#3f8f45", "#3b5f9e", "#6e4aa0", "#6e4a2e", "#2a2630", "#eeeae0"]),
     shoes: [{ v: "slipper", n: "拖鞋" }, { v: "sneaker", n: "布鞋" }, { v: "heels", n: "高跟鞋" }],
-    shoeColor: COLORS(["#e04a3a", "#f08a2a", "#f2c23b", "#4caf50", "#3a78d8", "#8e5bd0", "#2e2a33", "#f6f6f6"])
+    shoeColor: COLORS(["#e04a3a", "#f08a2a", "#f2c23b", "#4caf50", "#3a78d8", "#8e5bd0", "#8a5a36", "#2e2a33", "#f6f6f6"])
   };
   const GROUPS = [
     ["gender", "性別"], ["age", "種類"], ["hairColor", "髮色"], ["hairLen", "髮型"],
@@ -34,7 +37,7 @@
     hat: "none", hatColor: "red", glasses: "none", glassesSize: "small", topLen: "long", topColor: "blue",
     bottom: "pants", bottomColor: "black", shoes: "sneaker", shoeColor: "black" };
   // 舊版顏色名稱 → 新 8 色（之前存的人物不會壞掉）
-  const LEGACY = { brown: "orange", blonde: "yellow", silver: "white", denim: "blue", khaki: "yellow", gray: "white", pink: "red" };
+  const LEGACY = { blonde: "yellow", silver: "white", denim: "blue", khaki: "yellow", gray: "white", pink: "red" };
   // 種類綁定性別：婆婆媽媽＝女生、奇怪大哥＝男生
   const BIND = { auntie: "f", weird: "m" };
 
@@ -112,8 +115,11 @@
     const cx = 7.5, cy = hT + (B.head - 1) / 2, rx = 7, ry = B.head / 2;
     const inHead = (x, y, ex) => Math.pow(Math.abs(x - cx) / (rx + (ex || 0)), 2.6) + Math.pow(Math.abs(y - cy) / (ry + (ex || 0)), 2.6) <= 1;
 
-    /* 1. 背後的頭髮（長髮、大媽捲） */
-    if (L.hairLen === "long") for (let y = hT + 5; y <= bT + 3; y++) row(0, 15, y, hd);
+    /* 1. 背後的頭髮（長髮、學生頭、大波浪、大媽捲） */
+    const HL = L.hairLen;
+    if (HL === "long") for (let y = hT + 5; y <= bT + 3; y++) row(0, 15, y, hd);
+    if (HL === "bob") for (let y = hT + 5; y <= hT + 11; y++) row(0, 15, y, hd);
+    if (HL === "wave") for (let y = hT + 4; y <= bT + 4; y++) { const o = Math.round(Math.sin((y - hT) / 1.6)); row(-1 + o, 16 + o, y, hd); }
     if (L.hairLen === "perm") for (let y = hT + 4; y <= bT + 1; y++) for (let x = -2; x <= 17; x++) if (Math.abs(x - cx) <= 9.5 - Math.max(0, y - bT + 1) * 1.5) set(x, y, hd);
 
     /* 2. 學生書包（從左邊露出） */
@@ -243,34 +249,100 @@
     if (L.age === "parent" && !female) row(6, 9, ey + 4, hd);                 // 爸爸的小鬍子
     if ((L.age === "parent" || auntie) && female) { set(0, ey + 2, "#f2c23b"); set(15, ey + 2, "#f2c23b"); }        // 耳環
 
-    /* 10. 前面的頭髮 */
+    /* 10. 前面的頭髮（參考台灣常見髮型，畫成 Q 版） */
     const headPx = (x, y, ex) => inHead(x, y, ex);
-    if (L.hairLen === "short" || L.hairLen === "long") {
+    const cap = (yMax, ex) => { for (let y = hT - 2; y <= yMax; y++) for (let x = -1; x <= 16; x++) if (headPx(x, y, ex)) set(x, y, hc); };
+    const sides = (yMax, w) => { for (let y = hT + 3; y <= yMax; y++) for (let x = -1; x <= 16; x++) if (headPx(x, y, 0.6) && (x <= w || x >= 15 - w)) set(x, y, hc); };
+    const shine = () => { set(5, hT, hl); set(6, hT, hl); set(4, hT + 1, hl); };
+    if (HL === "short" || HL === "long") {
+      // 短髮／長直髮：一般瀏海
       for (let y = hT - 1; y <= hT + 8; y++) for (let x = -1; x <= 16; x++) {
         if (!headPx(x, y, 0.6)) continue;
         if (y <= hT + 3 || (y === hT + 4 && !(x === 5 || x === 6 || x === 9 || x === 10)) || ((x <= 2 || x >= 13) && y <= hT + 8)) set(x, y, hc);
       }
-      set(5, hT, hl); set(6, hT, hl); set(4, hT + 1, hl);
-      if (L.hairLen === "long") for (let y = hT + 4; y <= bT + 2; y++) { row(-1, 1, y, hc); row(14, 16, y, hc); }
-    } else if (L.hairLen === "curly") {
+      shine();
+      if (HL === "long") for (let y = hT + 4; y <= bT + 2; y++) { row(-1, 1, y, hc); row(14, 16, y, hc); }
+    } else if (HL === "buzz") {
+      // 平頭：貼著頭皮短短一層、看得到髮渣
+      for (let y = hT - 1; y <= hT + 5; y++) for (let x = 0; x <= 15; x++) {
+        if (!headPx(x, y, 0.3)) continue;
+        if (y <= hT + 2 || ((x <= 1 || x >= 14) && y <= hT + 5)) set(x, y, (x + y) % 2 ? hc : hd);
+      }
+    } else if (HL === "sidepart") {
+      // 旁分油頭：左邊分線、往右梳、抹油的亮光
+      cap(hT + 3, 0.6); sides(hT + 7, 1);
+      for (let y = hT - 1; y <= hT + 2; y++) set(4, y, hd);                     // 分線
+      for (let x = 6; x <= 14; x++) if (headPx(x, hT + 4, 0.6)) set(x, hT + 4, hc);
+      set(13, hT + 5, hc); set(14, hT + 5, hc);
+      for (let k = 0; k < 4; k++) set(7 + k, hT + k - 1, hl);                    // 油亮斜光
+    } else if (HL === "middle") {
+      // 韓系中分：中間分開、兩片窗簾瀏海往兩邊垂
+      cap(hT + 2, 0.6); sides(hT + 8, 1);
+      for (let y = hT - 1; y <= hT + 1; y++) { set(7, y, hd); set(8, y, hd); }
+      for (let y = hT + 3; y <= hT + 6; y++) { const d = y - hT - 3; row(1, 5 - d, y, hc); row(10 + d, 14, y, hc); }
+      set(3, hT, hl); set(11, hT, hl);
+    } else if (HL === "curly") {
+      // 自然捲
       for (let y = hT - 2; y <= hT + 9; y++) for (let x = -2; x <= 17; x++) {
         if (!headPx(x, y, 1.2)) continue;
         const edge = !headPx(x, y, 0.4);
-        if (edge && (x + y) % 2) continue;                                     // 捲捲的波浪邊
+        if (edge && (x + y) % 2) continue;
         if (y <= hT + 4 || x <= 2 || x >= 13) set(x, y, (x * 2 + y) % 5 === 0 ? hd : hc);
       }
       set(5, hT - 1, hl); set(9, hT, hl);
-    } else {
-      // 大媽長捲髮：蓬蓬的大捲，一路捲到肩膀
+    } else if (HL === "bob") {
+      // 學生頭（妹妹頭）：厚重齊瀏海、兩側切齊到下巴
+      cap(hT + 5, 0.7);
+      for (let y = hT + 3; y <= hT + 11; y++) { row(-1, 2, y, hc); row(13, 16, y, hc); }
+      row(-1, 2, hT + 11, hd); row(13, 16, hT + 11, hd);
+      row(2, 13, hT + 5, hd);                                                   // 齊瀏海切線
+      shine();
+    } else if (HL === "ponytail") {
+      // 馬尾：側分瀏海＋綁起來的尾巴從右後方甩出來
+      cap(hT + 3, 0.6); sides(hT + 7, 1);
+      for (let x = 2; x <= 8; x++) set(x, hT + 4, hc);
+      for (let y = hT + 2; y <= bT + 1; y++) { const w = y < hT + 6 ? 2 : y < bT - 1 ? 1 : 0; row(15, 15 + w, y, y % 3 ? hc : hd); }
+      set(14, hT + 2, "#e04a3a"); set(15, hT + 2, "#e04a3a"); set(14, hT + 3, "#e04a3a");   // 髮圈
+      shine();
+    } else if (HL === "bun") {
+      // 包包頭：頭頂一顆丸子
+      cap(hT + 3, 0.6); sides(hT + 7, 1);
+      for (let x = 3; x <= 12; x++) if (x % 4 !== 0) set(x, hT + 4, hc);
+      for (let y = hT - 5; y <= hT - 1; y++) for (let x = 4; x <= 11; x++) if (Math.pow((x - 7.5) / 3.6, 2) + Math.pow((y - hT + 3) / 2.4, 2) <= 1) set(x, y, (x + y) % 4 ? hc : hd);
+      set(6, hT - 4, hl); set(7, hT - 1, "#e04a3a"); set(8, hT - 1, "#e04a3a");
+    } else if (HL === "wave") {
+      // 大波浪捲（年輕人）：側分、亮澤、長長的 S 型大波浪
+      cap(hT + 3, 0.7);
+      for (let x = 1; x <= 6; x++) set(x, hT + 4, hc); set(1, hT + 5, hc); set(2, hT + 5, hc);
+      for (let y = hT + 3; y <= bT + 4; y++) {
+        const o = Math.round(Math.sin((y - hT) / 1.6) * 1.2);
+        row(-1 + o, Math.min(2, 1 + o), y, hc); row(Math.max(13, 14 + o), 16 + o, y, hc);
+        set(o, y, (y % 4 === 0) ? hl : hc); set(15 + o, y, (y % 4 === 2) ? hl : hc);
+      }
+      set(4, hT, hl); set(5, hT, hl); set(10, hT + 1, hl);
+    } else if (HL === "perm") {
+      // 大媽長捲髮：蓬蓬的大捲，一路捲到肩膀，看起來比較老氣
       for (let y = hT - 3; y <= bT + 1; y++) for (let x = -3; x <= 18; x++) {
         const top = Math.pow(Math.abs(x - cx) / 9.5, 2) + Math.pow(Math.abs(y - (hT + 5)) / 8.5, 2) <= 1;
         if (!top) continue;
-        const face = (inHead(x, y) && y > hT + 4 && x > 2 && x < 13) || (auntie && y >= ey + 2 && y <= ey + 6 && x >= 1 && x <= 14);  // 婆婆媽媽：垂下的臉頰露出來
+        const face = (inHead(x, y) && y > hT + 4 && x > 2 && x < 13) || (auntie && y >= ey + 2 && y <= ey + 6 && x >= 1 && x <= 14);
         if (face) continue;
         const ring = (x * 3 + y * 5) % 7;
         set(x, y, ring === 0 ? hd : ring === 3 ? hl : hc);
       }
-      for (let x = 3; x <= 12; x++) if (x % 3 !== 1) set(x, hT + 4, hc);       // 捲捲瀏海
+      for (let x = 3; x <= 12; x++) if (x % 3 !== 1) set(x, hT + 4, hc);
+    } else {
+      // 阿嬤白蓬捲：短短圓圓、一顆一顆小捲、蓬在頭上
+      for (let y = hT - 4; y <= ey + 1; y++) for (let x = -2; x <= 17; x++) {
+        const puff = Math.pow((x - cx) / 9, 2) + Math.pow((y - hT - 2) / 6.5, 2) <= 1;
+        if (!puff) continue;
+        if (inHead(x, y) && y > hT + 4 && x > 2 && x < 13) continue;
+        const edge = Math.pow((x - cx) / 8, 2) + Math.pow((y - hT - 2) / 5.6, 2) > 1;
+        if (edge && (x + y) % 2) continue;                                      // 一顆一顆的捲邊
+        const k = (x * 2 + y * 3) % 5;
+        set(x, y, k === 0 ? hd : k === 2 ? hl : hc);
+      }
+      for (let x = 3; x <= 12; x++) if (x % 2) set(x, hT + 5, hc);              // 捲捲瀏海
     }
     if (weird) { set(3, hT - 2, hc); set(7, hT - 3, hc); set(8, hT - 2, hc); set(12, hT - 2, hc); set(13, hT - 1, hc); }  // 亂翹的頭髮
 
@@ -389,6 +461,7 @@
         if (k === "age" && BIND[v]) look.gender = BIND[v];
         if (k === "gender" && BIND[look.age] && BIND[look.age] !== v) look.age = look.age === "auntie" ? "parent" : "office";
         if (k === "age" && v === "auntie" && look.hairLen === "short") look.hairLen = "perm";
+        if (k === "hairLen" && v === "granny") look.hairColor = "white";          // 阿嬤蓬捲預設白髮，可以再改
       }
       look = normalize(look);
       paint(); onChange && onChange(look);
