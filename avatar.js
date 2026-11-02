@@ -218,6 +218,26 @@
       set(7, ey + 4, "#b06a4a"); set(8, ey + 4, "#b06a4a");
       if (kid) { row(3, 4, ey + 3, BLUSH); row(11, 12, ey + 3, BLUSH); }
     }
+    if (auntie) {
+      // 婆婆媽媽：臉頰往下垂（雙下巴、法令紋、眼袋）＋濃妝（紫眼影、粗睫毛、大紅唇、大腮紅、美人痣）
+      const SAG = "#d9997a";
+      for (let y = ey + 3; y <= ey + 5; y++) { if (!at(1, y)) set(1, y, SKIN); if (!at(14, y)) set(14, y, SKIN); }   // 垂下來的臉頰
+      set(1, ey + 5, SAG); set(14, ey + 5, SAG);
+      row(3, 12, hT + B.head, SKIN_D); row(4, 11, hT + B.head, SKIN_D); row(5, 10, hT + B.head - 1, SAG);                // 雙下巴
+      row(3, 6, ey - 1, "#8a4ab8"); row(9, 12, ey - 1, "#8a4ab8");                                                     // 紫色眼影
+      set(4, ey - 2, "#b98ad8"); set(5, ey - 2, "#b98ad8"); set(10, ey - 2, "#b98ad8"); set(11, ey - 2, "#b98ad8");
+      set(3, ey, EYE); set(2, ey - 1, EYE); set(12, ey, EYE); set(13, ey - 1, EYE);                                   // 粗睫毛
+      row(4, 5, ey + 2, SAG); row(10, 11, ey + 2, SAG);                                                                // 眼袋
+      set(5, ey + 4, SAG); set(10, ey + 4, SAG); set(5, ey + 3, SAG); set(10, ey + 3, SAG);                           // 法令紋
+      row(2, 4, ey + 3, "#f0607a"); row(11, 13, ey + 3, "#f0607a"); set(3, ey + 2, "#f0607a"); set(12, ey + 2, "#f0607a"); // 大腮紅
+      row(6, 9, ey + 4, "#d8203a"); row(7, 8, ey + 5, "#a8182e");                                                      // 大紅唇
+      set(11, ey + 5, EYE);                                                                                            // 美人痣
+      set(3, ey + 1, EYE); set(12, ey + 1, EYE);                                                                       // 下垂的眼尾
+      for (const [x0, x1] of [[1, 2], [13, 14]]) for (let y = ey + 2; y <= ey + 6; y++) row(x0, x1, y, y >= ey + 5 ? SAG : SKIN); // 兩側鬆垮的臉頰
+      set(2, ey + 6, null); set(13, ey + 6, null); set(1, ey + 6, null); set(14, ey + 6, null);
+      row(3, 12, ey + 6, SAG); row(4, 11, ey + 6, SKIN); set(4, ey + 6, SAG); set(11, ey + 6, SAG);                    // 雙下巴
+      set(3, ey + 5, SAG); set(12, ey + 5, SAG);
+    }
     if (weird) for (let x = 5; x <= 10; x++) { if (x % 2) set(x, ey + 5, "#9a8a96"); if (x === 6 || x === 9) set(x, ey + 4, "#9a8a96"); } // 鬍渣
     if (elder) { set(4, ey + 3, SKIN_D); set(11, ey + 3, SKIN_D); set(7, hT + 3, SKIN_D); set(8, hT + 3, SKIN_D); }   // 皺紋
     if (L.age === "parent" && !female) row(6, 9, ey + 4, hd);                 // 爸爸的小鬍子
@@ -245,7 +265,7 @@
       for (let y = hT - 3; y <= bT + 1; y++) for (let x = -3; x <= 18; x++) {
         const top = Math.pow(Math.abs(x - cx) / 9.5, 2) + Math.pow(Math.abs(y - (hT + 5)) / 8.5, 2) <= 1;
         if (!top) continue;
-        const face = inHead(x, y) && y > hT + 4 && x > 2 && x < 13;
+        const face = (inHead(x, y) && y > hT + 4 && x > 2 && x < 13) || (auntie && y >= ey + 2 && y <= ey + 6 && x >= 1 && x <= 14);  // 婆婆媽媽：垂下的臉頰露出來
         if (face) continue;
         const ring = (x * 3 + y * 5) % 7;
         set(x, y, ring === 0 ? hd : ring === 3 ? hl : hc);
