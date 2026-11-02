@@ -1,26 +1,31 @@
-/* 奧客互助協會：點陣人物（奧客外觀）產生器
-   16x32 格的像素人物，外加 1 格描邊。所有選項都在 OPT 裡，要加新選項只改這裡。 */
+/* 奧客互助協會：點陣人物產生器 v3（大頭圓臉 Q 版風格）
+   勇者與奧客共用。所有選項都在 OPT 裡，要加新選項只改這裡。
+   畫面固定 28×34 格（含描邊），人物永遠站在正中間。 */
 (function () {
   "use strict";
   const C = (v, n, c) => ({ v, n, c });
+  // 8 色：紅橙黃綠藍紫黑白
+  const COLORS = (pal) => [C("red", "紅", pal[0]), C("orange", "橙", pal[1]), C("yellow", "黃", pal[2]), C("green", "綠", pal[3]),
+    C("blue", "藍", pal[4]), C("purple", "紫", pal[5]), C("black", "黑", pal[6]), C("white", "白", pal[7])];
   const OPT = {
     gender: [{ v: "m", n: "男生" }, { v: "f", n: "女生" }],
-    age: [{ v: "kid", n: "小朋友" }, { v: "student", n: "學生" }, { v: "office", n: "上班族" }, { v: "parent", n: "爸爸媽媽" }, { v: "elder", n: "爺爺奶奶" }],
-    hairColor: [C("black", "黑", "#2a2230"), C("brown", "棕", "#7a4a24"), C("blonde", "金", "#f2c23b"), C("red", "紅", "#c8402e"), C("silver", "銀白", "#dcdce6"), C("blue", "藍", "#3a6ad8")],
-    hairLen: [{ v: "long", n: "長髮" }, { v: "short", n: "短髮" }, { v: "curly", n: "捲髮" }],
+    age: [{ v: "kid", n: "小朋友" }, { v: "student", n: "學生" }, { v: "office", n: "上班族" }, { v: "parent", n: "爸爸媽媽" },
+      { v: "auntie", n: "婆婆媽媽" }, { v: "weird", n: "奇怪大哥" }, { v: "elder", n: "爺爺奶奶" }],
+    hairColor: COLORS(["#c8402e", "#d9782a", "#f2c23b", "#4c9a50", "#3a6ad8", "#7a4ab0", "#2a2230", "#ececf2"]),
+    hairLen: [{ v: "long", n: "長髮" }, { v: "short", n: "短髮" }, { v: "curly", n: "捲髮" }, { v: "perm", n: "大媽長捲髮" }],
     hat: [{ v: "none", n: "沒戴" }, { v: "cap", n: "棒球帽" }, { v: "beanie", n: "毛帽" }, { v: "sunhat", n: "遮陽帽" }],
-    hatColor: [C("red", "紅", "#d23a2a"), C("blue", "藍", "#2d64c8"), C("green", "綠", "#3fae5a"), C("yellow", "黃", "#f2c23b"), C("black", "黑", "#2a2230"), C("white", "白", "#f6f6f6")],
+    hatColor: COLORS(["#e04a3a", "#f08a2a", "#f2c23b", "#4caf50", "#3a78d8", "#8e5bd0", "#2e2a33", "#f6f6f6"]),
     glasses: [{ v: "none", n: "沒戴" }, { v: "round", n: "圓框" }, { v: "square", n: "方框" }],
     glassesSize: [{ v: "small", n: "小" }, { v: "big", n: "大" }],
     topLen: [{ v: "long", n: "長袖" }, { v: "short", n: "短袖" }],
-    topColor: [C("red", "紅", "#d23a2a"), C("blue", "藍", "#2d64c8"), C("green", "綠", "#3fae5a"), C("yellow", "黃", "#f2c23b"), C("black", "黑", "#2a2230"), C("white", "白", "#f6f6f6")],
+    topColor: COLORS(["#e04a3a", "#f08a2a", "#f2c23b", "#4caf50", "#3a78d8", "#8e5bd0", "#2e2a33", "#f6f6f6"]),
     bottom: [{ v: "pants", n: "長褲" }, { v: "shorts", n: "短褲" }, { v: "longskirt", n: "長裙" }, { v: "skirt", n: "短裙" }],
-    bottomColor: [C("black", "黑", "#2a2230"), C("denim", "牛仔藍", "#3b5f9e"), C("khaki", "卡其", "#c2a36b"), C("gray", "灰", "#8a8f98"), C("white", "白", "#f6f6f6"), C("red", "紅", "#b8322a")],
+    bottomColor: COLORS(["#c43a2e", "#d97a2a", "#e0b23a", "#3f8f45", "#3b5f9e", "#6e4aa0", "#2a2630", "#eeeae0"]),
     shoes: [{ v: "slipper", n: "拖鞋" }, { v: "sneaker", n: "布鞋" }, { v: "heels", n: "高跟鞋" }],
-    shoeColor: [C("black", "黑", "#2a2230"), C("white", "白", "#f6f6f6"), C("red", "紅", "#d23a2a"), C("blue", "藍", "#2d64c8"), C("brown", "棕", "#7a4a24"), C("pink", "粉", "#f08cb0")]
+    shoeColor: COLORS(["#e04a3a", "#f08a2a", "#f2c23b", "#4caf50", "#3a78d8", "#8e5bd0", "#2e2a33", "#f6f6f6"])
   };
   const GROUPS = [
-    ["gender", "性別"], ["age", "年紀"], ["hairColor", "髮色"], ["hairLen", "髮型"],
+    ["gender", "性別"], ["age", "種類"], ["hairColor", "髮色"], ["hairLen", "髮型"],
     ["hat", "帽子"], ["hatColor", "帽子顏色"], ["glasses", "眼鏡"], ["glassesSize", "鏡框大小"],
     ["topLen", "上衣"], ["topColor", "上衣顏色"], ["bottom", "下身"], ["bottomColor", "下身顏色"],
     ["shoes", "鞋子"], ["shoeColor", "鞋子顏色"]
@@ -28,17 +33,26 @@
   const DEFAULT = { gender: "m", age: "office", hairColor: "black", hairLen: "short",
     hat: "none", hatColor: "red", glasses: "none", glassesSize: "small", topLen: "long", topColor: "blue",
     bottom: "pants", bottomColor: "black", shoes: "sneaker", shoeColor: "black" };
+  // 舊版顏色名稱 → 新 8 色（之前存的人物不會壞掉）
+  const LEGACY = { brown: "orange", blonde: "yellow", silver: "white", denim: "blue", khaki: "yellow", gray: "white", pink: "red" };
+  // 種類綁定性別：婆婆媽媽＝女生、奇怪大哥＝男生
+  const BIND = { auntie: "f", weird: "m" };
 
   const get = (k, v) => OPT[k].find((o) => o.v === v) || OPT[k].find((o) => o.v === DEFAULT[k]);
   function normalize(look) {
     const out = {};
-    for (const k of Object.keys(DEFAULT)) out[k] = get(k, look && look[k]).v;
+    for (const k of Object.keys(DEFAULT)) {
+      let v = look && look[k];
+      if (LEGACY[v] && !OPT[k].some((o) => o.v === v)) v = LEGACY[v];
+      out[k] = get(k, v).v;
+    }
+    if (BIND[out.age]) out.gender = BIND[out.age];
     return out;
   }
   function random() {
     const out = {};
     for (const k of Object.keys(OPT)) out[k] = OPT[k][Math.floor(Math.random() * OPT[k].length)].v;
-    return out;
+    return normalize(out);
   }
   function describe(look) {
     const L = normalize(look), n = (k) => get(k, L[k]).n;
@@ -47,35 +61,32 @@
       L.hat !== "none" ? n("hatColor") + "色" + n("hat") : "",
       L.glasses !== "none" ? n("glassesSize") + n("glasses") + "眼鏡" : "",
       n("topColor") + "色" + n("topLen"),
-      n("bottomColor") + n("bottom"),
+      n("bottomColor") + "色" + n("bottom"),
       n("shoeColor") + "色" + n("shoes")].filter(Boolean).join("・");
   }
 
   /* ---- 顏色工具 ---- */
-  function shade(hex, f) {
-    const n = parseInt(hex.slice(1), 16);
-    const ch = (s) => Math.max(0, Math.min(255, Math.round(((n >> s) & 255) * f)));
-    return "#" + ((1 << 24) | (ch(16) << 16) | (ch(8) << 8) | ch(0)).toString(16).slice(1);
-  }
-  const SKIN = "#f5c9a0", SKIN_D = "#d99c74", INK = "#1a1020", BLUSH = "#f29a9a";
+  function hex2rgb(h) { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+  function rgb2hex(r, g, b) { return "#" + ((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1); }
+  function shade(hex, f) { const [r, g, b] = hex2rgb(hex), c = (v) => Math.max(0, Math.min(255, Math.round(v * f))); return rgb2hex(c(r), c(g), c(b)); }
+  function mix(a, b, t) { const A = hex2rgb(a), B = hex2rgb(b); return rgb2hex(...A.map((v, i) => Math.round(v + (B[i] - v) * t))); }
+  // Q 版柔和色：膚色、描邊用深咖啡而不是純黑
+  const SKIN = "#f8d4b0", SKIN_D = "#e3a984", OUT = "#3a2a22", EYE = "#2a1e18", BLUSH = "#f4a0a0", WHITE = "#ffffff";
 
-  /* ---- 依年紀＋性別決定身形 ---- */
-  // 男生：肩膀寬（上衣 8 格）；女生：較瘦（上衣 6 格）；爺爺奶奶：矮一點、頭縮進肩膀、往前駝
+  /* ---- 種類 → 身形 ---- */
+  // head：頭高（Q 版大頭）、torso：身體、leg：腿；男生肩寬 8 格、女生 6 格
   const BODY = {
-    kid: { legH: 5, torsoH: 6 },
-    student: { legH: 8, torsoH: 8 },
-    office: { legH: 9, torsoH: 9 },
-    parent: { legH: 9, torsoH: 9 },
-    elder: { legH: 8, torsoH: 8, sink: 2 }
+    kid: { head: 13, torso: 5, leg: 2 },
+    student: { head: 14, torso: 6, leg: 3 },
+    office: { head: 14, torso: 7, leg: 3 },
+    parent: { head: 14, torso: 7, leg: 3 },
+    auntie: { head: 14, torso: 7, leg: 3 },
+    weird: { head: 14, torso: 7, leg: 3 },
+    elder: { head: 14, torso: 6, leg: 3 }
   };
-  const SHAPE = {
-    m: { tx: [4, 11], arms: [[2, 3], [12, 13]] },
-    f: { tx: [5, 10], arms: [[3, 4], [11, 12]] },
-    kid: { tx: [5, 10], arms: [[3, 4], [11, 12]] }
-  };
-  const W = 24, H = 32, OX = 4;   // 左右多留空間給書包、公事包、拐杖、小 baby
+  const W = 26, H = 32, OX = 5;
 
-  // full=true：不裁切，固定 26×34 格的畫框，人物永遠站在正中間同一個位置
+  // full=true：不裁切，固定畫框，人物永遠站在正中間同一個位置
   function build(look, full) {
     const L = normalize(look);
     const g = Array.from({ length: H }, () => Array(W).fill(null));
@@ -84,215 +95,217 @@
     const row = (x0, x1, y, c) => { for (let x = x0; x <= x1; x++) set(x, y, c); };
     const draw = (rows, x0, y0, pal) => rows.forEach((r, j) => [...r].forEach((ch, i) => { if (pal[ch]) set(x0 + i, y0 + j, pal[ch]); }));
 
-    const female = L.gender === "f", elder = L.age === "elder";
-    const B = BODY[L.age], S = SHAPE[L.age === "kid" ? "kid" : L.gender];
-    const legsTop = 30 - B.legH, torsoTop = legsTop - B.torsoH, headTop = torsoTop - 8 + (B.sink || 0);
-    const hc = get("hairColor", L.hairColor).c, hd = shade(hc, 0.72), hl = shade(hc, 1.18);
-    const tc = get("topColor", L.topColor).c, td = shade(tc, 0.78);
-    const bc = get("bottomColor", L.bottomColor).c, bd = shade(bc, 0.75);
-    const sc = get("shoeColor", L.shoeColor).c, sd = shade(sc, 0.7);
-    const [tx0, tx1] = S.tx, [[la0, la1], [ra0, ra1]] = S.arms;
-    const handY = torsoTop + B.torsoH;
+    const female = L.gender === "f", kid = L.age === "kid", elder = L.age === "elder", weird = L.age === "weird", auntie = L.age === "auntie";
+    const B = BODY[L.age];
+    const legsTop = 30 - B.leg, bT = legsTop - B.torso, hT = bT - B.head + (elder ? 1 : 0);
+    const [tx0, tx1] = kid || female ? [5, 10] : [4, 11];
+    const handY = bT + Math.min(5, B.torso - 1);
 
-    // 1. 長髮（背後那一片）
-    if (L.hairLen === "long") for (let y = headTop + 2; y <= torsoTop + 3; y++) row(3, 12, y, hd);
+    const hc = get("hairColor", L.hairColor).c, hd = shade(hc, 0.72), hl = mix(hc, WHITE, 0.35);
+    // 奇怪大哥：衣服灰灰髒髒的
+    const dirty = (c) => (weird ? mix(c, "#7d725e", 0.38) : c);
+    const tc = dirty(get("topColor", L.topColor).c), td = shade(tc, 0.8);
+    const bc = dirty(get("bottomColor", L.bottomColor).c), bd = shade(bc, 0.78);
+    const sc = dirty(get("shoeColor", L.shoeColor).c), sd = shade(sc, 0.72);
 
-    // 2. 學生的書包（背在身後，從左側露出來）
+    // 圓圓的大頭（超橢圓，比圓形更方一點的 Q 版臉）
+    const cx = 7.5, cy = hT + (B.head - 1) / 2, rx = 7, ry = B.head / 2;
+    const inHead = (x, y, ex) => Math.pow(Math.abs(x - cx) / (rx + (ex || 0)), 2.6) + Math.pow(Math.abs(y - cy) / (ry + (ex || 0)), 2.6) <= 1;
+
+    /* 1. 背後的頭髮（長髮、大媽捲） */
+    if (L.hairLen === "long") for (let y = hT + 5; y <= bT + 3; y++) row(0, 15, y, hd);
+    if (L.hairLen === "perm") for (let y = hT + 4; y <= bT + 1; y++) for (let x = -2; x <= 17; x++) if (Math.abs(x - cx) <= 9.5 - Math.max(0, y - bT + 1) * 1.5) set(x, y, hd);
+
+    /* 2. 學生書包（從左邊露出） */
     if (L.age === "student") {
-      const bag = L.topColor === "red" ? "#2d64c8" : "#c8402e", bagD = shade(bag, 0.7);
-      for (let y = torsoTop - 1; y <= torsoTop + 6; y++) row(la0 - 2, la0 - 1, y, y === torsoTop + 1 ? bagD : bag);
-      set(la0 - 2, torsoTop + 3, "#f2c23b");                         // 書包扣環
+      const bag = L.topColor === "red" ? "#3a78d8" : "#e04a3a", bagD = shade(bag, 0.72);
+      for (let y = bT - 1; y <= bT + 4; y++) row(tx0 - 4, tx0 - 3, y, y === bT ? bagD : bag);
+      set(tx0 - 4, bT + 2, "#f2c23b");
     }
 
-    // 3. 下身
-    const bareLegs = (from) => { for (let y = from; y <= 29; y++) { row(5, 6, y, SKIN); row(9, 10, y, SKIN); } };
+    /* 3. 腿與下身（Q 版短腿） */
+    const skinLegs = (from) => { for (let y = from; y <= 29; y++) { row(5, 6, y, SKIN); row(9, 10, y, SKIN); } };
     if (L.bottom === "pants") {
-      for (let y = legsTop; y <= 29; y++) {
-        if (y < legsTop + 3) row(5, 10, y, bc);
-        else { row(5, 6, y, bc); row(9, 10, y, bc); set(6, y, bd); set(10, y, bd); }
-      }
+      for (let y = legsTop; y <= 29; y++) { if (y === legsTop) row(5, 10, y, bc); else { row(5, 6, y, bc); row(9, 10, y, bc); set(6, y, bd); set(10, y, bd); } }
+      if (weird) set(5, 29, "#a08a5a");                                   // 補丁
     } else if (L.bottom === "shorts") {
-      for (let y = legsTop; y < legsTop + 4; y++) {
-        if (y < legsTop + 2) row(5, 10, y, bc); else { row(5, 6, y, bc); row(9, 10, y, bc); }
-      }
-      bareLegs(legsTop + 4);
-    } else if (L.bottom === "longskirt") {
-      for (let y = legsTop; y <= 28; y++) {
-        const w = Math.floor((y - legsTop) / 3);
-        row(Math.max(3, tx0 - w), Math.min(12, tx1 + w), y, y === 28 ? bd : bc);
-      }
-      bareLegs(29);
+      row(5, 10, legsTop, bc); skinLegs(legsTop + 1);
+    } else if (L.bottom === "skirt") {
+      row(tx0, tx1, legsTop, bc); row(tx0 - 1, tx1 + 1, legsTop + 1, bd); skinLegs(legsTop + 2);
     } else {
-      for (let y = legsTop; y < legsTop + 4; y++) {
-        const w = Math.floor((y - legsTop) / 2);
-        row(Math.max(3, tx0 - w), Math.min(12, tx1 + w), y, y === legsTop + 3 ? bd : bc);
-      }
-      bareLegs(legsTop + 4);
+      for (let y = legsTop; y <= 29; y++) row(tx0 - 1 - (y - legsTop), tx1 + 1 + (y - legsTop), y, y === 29 ? bd : bc);
     }
 
-    // 4. 鞋子
+    /* 4. 鞋子（圓圓的） */
     if (L.shoes === "sneaker") {
       row(4, 6, 30, sc); row(9, 11, 30, sc);
-      const sole = L.shoeColor === "white" ? "#b8b8c0" : "#f6f6f6";
+      const sole = L.shoeColor === "white" ? "#b8b8c0" : WHITE;
       row(4, 6, 31, sole); row(9, 11, 31, sole);
     } else if (L.shoes === "slipper") {
-      set(4, 30, SKIN); set(11, 30, SKIN); row(5, 6, 30, sc); row(9, 10, 30, sc);
-      row(4, 6, 31, sd); row(9, 11, 31, sd);
+      set(4, 30, SKIN); set(11, 30, SKIN); row(5, 6, 30, sc); row(9, 10, 30, sc); row(4, 6, 31, sd); row(9, 11, 31, sd);
     } else {
-      row(4, 6, 30, sc); row(9, 11, 30, sc);
-      set(4, 31, sc); set(6, 31, sd); set(9, 31, sd); set(11, 31, sc);
+      row(4, 6, 30, sc); row(9, 11, 30, sc); set(4, 31, sc); set(6, 31, sd); set(9, 31, sd); set(11, 31, sc);
     }
 
-    // 5. 上衣（男生寬、女生窄＋收腰）
-    for (let y = torsoTop; y < handY; y++) {
-      row(tx0, tx1, y, y === handY - 1 ? td : tc);
-      set(tx1, y, td);
+    /* 5. 身體（圓肩、男寬女窄） */
+    for (let y = bT; y < bT + B.torso; y++) {
+      const a = y === bT ? tx0 + 1 : tx0, b = y === bT ? tx1 - 1 : tx1;
+      row(a, b, y, y === bT + B.torso - 1 ? td : tc); set(b, y, td);
     }
-    if (female && L.age !== "kid") { set(tx0, handY - 3, td); set(tx1, handY - 3, shade(tc, 0.65)); } // 腰線
-    set(7, torsoTop, SKIN); set(8, torsoTop, SKIN);
-    if (elder) { set(tx0, torsoTop, null); set(tx1, torsoTop, null); }  // 圓肩
+    set(7, bT, SKIN); set(8, bT, SKIN);
+    if (female && !kid) { set(tx0, bT + B.torso - 3, td); set(tx1, bT + B.torso - 3, shade(tc, 0.65)); }  // 收腰
+    if (weird) { set(tx0 + 1, bT + 2, "#6b5a2a"); set(tx1 - 2, bT + 3, "#6b5a2a"); set(tx0 + 3, bT + 5, "#5a4a22"); set(tx0 + 4, bT + 5, "#5a4a22"); } // 污漬
 
-    // 6. 手臂與袖子
-    for (const [a0, a1] of S.arms) {
-      const inner = a0 < 8 ? a1 : a0;
-      if (!elder) set(inner, torsoTop, tc);
-      for (let y = torsoTop + 1; y <= handY; y++) {
-        let c = SKIN;
-        if (y < handY && (L.topLen === "long" || y <= torsoTop + 2)) c = tc;
-        row(a0, a1, y, c);
+    /* 6. 短短的手 */
+    for (const [a0, a1] of [[tx0 - 2, tx0 - 1], [tx1 + 1, tx1 + 2]]) {
+      for (let y = bT + 1; y <= handY; y++) {
+        const sleeve = y < handY && (L.topLen === "long" || y <= bT + 2);
+        row(a0, a1, y, sleeve ? tc : SKIN);
       }
     }
 
-    // 7. 身上配件
-    if (L.age === "student") for (let y = torsoTop; y <= torsoTop + 4; y++) { set(tx0 + 1, y, "#6b4a2b"); set(tx1 - 1, y, "#6b4a2b"); } // 書包背帶
+    /* 7. 身上配件 */
+    if (L.age === "student") for (let y = bT; y <= bT + 3; y++) { set(tx0 + 1, y, "#7a4a24"); set(tx1 - 1, y, "#7a4a24"); }
     if (L.age === "office" && !female) {
-      const tie = L.topColor === "red" ? "#2d64c8" : "#b8322a";
-      for (let y = torsoTop + 1; y <= torsoTop + 5; y++) { set(7, y, tie); set(8, y, y === torsoTop + 1 ? tie : shade(tie, 0.8)); }
+      const tie = L.topColor === "red" ? "#3a78d8" : "#c43a2e";
+      for (let y = bT + 1; y <= bT + 4; y++) { set(7, y, tie); set(8, y, y === bT + 1 ? tie : shade(tie, 0.8)); }
+    }
+    if (auntie) for (let x = tx0 + 1; x <= tx1 - 1; x++) set(x, bT + 1, x % 2 ? "#fffaf0" : "#d8d0e0");  // 珍珠項鍊
+
+    /* 8. 手上拿的東西 */
+    const rh = tx1 + 3;
+    if (kid) draw(["b...b", "bbbbb", "bkbkb", "bbsbb", ".bbb.", "bb.bb"], tx1 + 2, handY - 3, { b: "#b07040", k: EYE, s: "#f2d8b0" });   // 小熊
+    if (L.age === "office") {                                                                                       // 公事包
+      row(rh, rh + 2, handY, OUT);
+      for (let y = handY + 1; y <= handY + 3; y++) row(rh - 1, rh + 3, y, y === handY + 1 ? "#5a3a1e" : "#7a4e2a");
+      set(rh + 1, handY + 2, "#f2c23b");
+    }
+    if (auntie) {                                                                                                   // 菜籃＋蔥
+      for (let y = handY - 4; y <= handY - 1; y++) set(rh + 2, y, y === handY - 1 ? WHITE : "#4caf50");
+      set(rh + 1, handY - 4, "#4caf50");
+      row(rh - 1, rh, handY - 1, "#c43a2e"); row(rh + 3, rh + 4, handY - 1, "#c43a2e");
+      for (let y = handY; y <= handY + 3; y++) for (let x = rh - 1; x <= rh + 4; x++) set(x, y, (x + y) % 2 ? "#e04a3a" : "#fff3e0");
+    }
+    if (L.age === "parent") {                                                                                       // 牽小 baby
+      const bx = tx1 + 4, onesie = L.topColor === "yellow" ? "#9fc3f0" : "#ffe08a";
+      set(tx1 + 3, handY, SKIN); for (let y = handY + 1; y <= 25; y++) set(tx1 + 3, y, SKIN);
+      row(bx + 1, bx + 3, 21, "#8a5a30");
+      for (let y = 22; y <= 25; y++) row(y === 22 || y === 25 ? bx + 1 : bx, y === 22 || y === 25 ? bx + 3 : bx + 4, y, SKIN);
+      set(bx + 1, 23, EYE); set(bx + 3, 23, EYE); set(bx + 2, 24, BLUSH);
+      for (let y = 26; y <= 28; y++) row(bx + 1, bx + 3, y, onesie);
+      set(bx + 1, 29, SKIN); set(bx + 3, 29, SKIN); set(bx + 1, 30, SKIN); set(bx + 3, 30, SKIN);
+      set(bx + 1, 31, WHITE); set(bx + 3, 31, WHITE);
     }
 
-    // 8. 手上拿的東西
-    if (L.age === "kid") {          // 小朋友：抱著小熊玩偶
-      draw(["b...b", "bbbbb", "bkbkb", "bbsbb", ".bbb.", "bb.bb"], ra1, handY - 3,
-        { b: "#a0642d", k: INK, s: "#f2d2a0" });
+    /* 9. 大頭 */
+    for (let y = hT; y < hT + B.head; y++) for (let x = 0; x <= 15; x++) if (inHead(x, y)) set(x, y, y >= hT + B.head - 2 ? SKIN_D : SKIN);
+    for (let y = hT; y < hT + B.head - 2; y++) for (let x = 0; x <= 15; x++) if (inHead(x, y)) set(x, y, SKIN);
+    const ey = hT + 7;
+    // 眼睛：2×2 圓眼＋反光；爺爺奶奶瞇瞇眼；奇怪大哥半睜眼
+    for (const ex of [4, 10]) {
+      if (elder) { set(ex, ey + 1, EYE); set(ex + 1, ey + 1, EYE); set(ex - 1, ey, SKIN_D); set(ex + 2, ey, SKIN_D); }
+      else if (weird) { row(ex, ex + 1, ey, SKIN_D); row(ex, ex + 1, ey + 1, EYE); set(ex, ey + 2, "#c8a0a0"); set(ex + 1, ey + 2, "#c8a0a0"); }
+      else { row(ex, ex + 1, ey, EYE); row(ex, ex + 1, ey + 1, EYE); set(ex, ey, WHITE); }
     }
-    if (L.age === "office") {       // 上班族：手提公事包
-      row(ra1 + 1, ra1 + 4, handY, INK);
-      for (let y = handY + 1; y <= handY + 4; y++) row(ra1, ra1 + 5, y, y === handY + 1 ? "#4a2e16" : "#6b4224");
-      set(ra1 + 2, handY + 2, "#f2c23b"); set(ra1 + 3, handY + 2, "#f2c23b");  // 金屬扣
-    }
-    if (L.age === "parent") {       // 爸爸媽媽：牽著小 baby
-      const bx = ra1 + 3, onesie = L.topColor === "yellow" ? "#9fc3f0" : "#ffe08a";
-      set(ra1 + 1, handY, SKIN); set(ra1 + 1, handY + 1, SKIN);                 // 牽手
-      for (let y = handY + 2; y <= 26; y++) set(ra1 + 2, y, SKIN);              // baby 舉高的手
-      row(bx, bx + 2, 22, "#7a4a24");                                           // 胎毛
-      for (let y = 23; y <= 25; y++) row(bx, bx + 2, y, SKIN);
-      set(bx, 24, INK); set(bx + 2, 24, INK); set(bx + 1, 25, BLUSH);
-      for (let y = 26; y <= 28; y++) row(bx, bx + 2, y, onesie);
-      set(bx + 3, 26, SKIN); set(bx + 3, 27, SKIN);
-      set(bx, 29, SKIN); set(bx, 30, SKIN); set(bx + 2, 29, SKIN); set(bx + 2, 30, SKIN);
-      set(bx, 31, "#f6f6f6"); set(bx + 2, 31, "#f6f6f6");
-    }
-
-    // 9. 頭
-    for (let y = headTop; y < headTop + 8; y++) row(4, 11, y, y === headTop + 7 ? SKIN_D : SKIN);
-    set(4, headTop, null); set(11, headTop, null); set(4, headTop + 7, null); set(11, headTop + 7, null);
-    set(3, headTop + 4, SKIN); set(12, headTop + 4, SKIN);
-    const ey = headTop + 4;
-    set(6, ey, INK); set(9, ey, INK);
-    if (L.age === "kid") { set(6, ey + 1, INK); set(9, ey + 1, INK); }
-    if (female) {                   // 女生：睫毛、紅唇、腮紅
-      set(5, ey - 1, INK); set(10, ey - 1, INK);
-      set(7, headTop + 6, "#d2506a"); set(8, headTop + 6, "#d2506a");
-      set(5, ey + 1, BLUSH); set(10, ey + 1, BLUSH); set(4, ey + 1, BLUSH); set(11, ey + 1, BLUSH);
-    } else {                        // 男生：粗眉毛
-      const brow = shade(hc, 0.55);
-      set(6, ey - 2, brow); set(5, ey - 2, brow); set(9, ey - 2, brow); set(10, ey - 2, brow);
-      set(7, headTop + 6, "#a0563a"); set(8, headTop + 6, "#a0563a");
-      if (L.age === "kid") { set(5, ey + 1, BLUSH); set(10, ey + 1, BLUSH); }
-    }
-    if (elder) {                    // 爺爺奶奶：皺紋
-      set(5, ey + 2, SKIN_D); set(10, ey + 2, SKIN_D); set(7, headTop + 1, SKIN_D); set(8, headTop + 1, SKIN_D);
-    }
-    if (L.age === "parent" && !female) row(6, 9, headTop + 6, hd);
-    if (L.age === "parent" && female) { set(3, headTop + 5, "#f2c23b"); set(12, headTop + 5, "#f2c23b"); }
-
-    // 10. 前面的頭髮
-    if (L.hairLen === "curly") {
-      row(5, 6, headTop - 2, hc); row(9, 10, headTop - 2, hc);
-      row(4, 11, headTop - 1, hc); row(3, 12, headTop, hc); row(3, 12, headTop + 1, hc);
-      [3, 4, 5, 10, 11, 12].forEach((x) => set(x, headTop + 2, hc));
-      [3, 4, 11, 12].forEach((x) => set(x, headTop + 3, hc));
-      for (let y = headTop + 4; y <= headTop + 6; y++) { set(3, y, hc); set(12, y, hc); }
-      for (let y = headTop - 2; y <= headTop + 6; y++) for (let x = 3; x <= 12; x++) if (at(x, y) === hc && (x + y) % 3 === 0) set(x, y, hd);
-      set(6, headTop - 1, hl);
+    set(7, ey + 2, SKIN_D);                                                     // 小鼻子
+    if (female) {
+      set(3, ey - 1, EYE); set(12, ey - 1, EYE);                               // 睫毛
+      row(2, 4, ey + 3, BLUSH); row(11, 13, ey + 3, BLUSH);                    // 腮紅
+      set(7, ey + 4, "#e0607a"); set(8, ey + 4, "#e0607a");                    // 紅唇
     } else {
-      row(5, 10, headTop - 1, hc); row(4, 11, headTop, hc); row(4, 11, headTop + 1, hc);
-      [4, 5, 10, 11].forEach((x) => set(x, headTop + 2, hc));
-      set(4, headTop + 3, hc); set(11, headTop + 3, hc);
-      set(6, headTop, hl); set(7, headTop, hl);
-      if (L.hairLen === "long") {
-        for (let y = headTop + 1; y <= torsoTop + 3; y++) { set(3, y, hc); set(12, y, hc); }
-        for (let y = headTop + 4; y <= headTop + 6; y++) { set(4, y, hc); set(11, y, hc); }
-      }
+      const brow = shade(hc, 0.5);
+      row(4, 5, ey - 2, brow); row(10, 11, ey - 2, brow);                      // 粗眉
+      set(7, ey + 4, "#b06a4a"); set(8, ey + 4, "#b06a4a");
+      if (kid) { row(3, 4, ey + 3, BLUSH); row(11, 12, ey + 3, BLUSH); }
     }
+    if (weird) for (let x = 5; x <= 10; x++) { if (x % 2) set(x, ey + 5, "#9a8a96"); if (x === 6 || x === 9) set(x, ey + 4, "#9a8a96"); } // 鬍渣
+    if (elder) { set(4, ey + 3, SKIN_D); set(11, ey + 3, SKIN_D); set(7, hT + 3, SKIN_D); set(8, hT + 3, SKIN_D); }   // 皺紋
+    if (L.age === "parent" && !female) row(6, 9, ey + 4, hd);                 // 爸爸的小鬍子
+    if ((L.age === "parent" || auntie) && female) { set(0, ey + 2, "#f2c23b"); set(15, ey + 2, "#f2c23b"); }        // 耳環
 
-    // 11. 帽子
+    /* 10. 前面的頭髮 */
+    const headPx = (x, y, ex) => inHead(x, y, ex);
+    if (L.hairLen === "short" || L.hairLen === "long") {
+      for (let y = hT - 1; y <= hT + 8; y++) for (let x = -1; x <= 16; x++) {
+        if (!headPx(x, y, 0.6)) continue;
+        if (y <= hT + 3 || (y === hT + 4 && !(x === 5 || x === 6 || x === 9 || x === 10)) || ((x <= 2 || x >= 13) && y <= hT + 8)) set(x, y, hc);
+      }
+      set(5, hT, hl); set(6, hT, hl); set(4, hT + 1, hl);
+      if (L.hairLen === "long") for (let y = hT + 4; y <= bT + 2; y++) { row(-1, 1, y, hc); row(14, 16, y, hc); }
+    } else if (L.hairLen === "curly") {
+      for (let y = hT - 2; y <= hT + 9; y++) for (let x = -2; x <= 17; x++) {
+        if (!headPx(x, y, 1.2)) continue;
+        const edge = !headPx(x, y, 0.4);
+        if (edge && (x + y) % 2) continue;                                     // 捲捲的波浪邊
+        if (y <= hT + 4 || x <= 2 || x >= 13) set(x, y, (x * 2 + y) % 5 === 0 ? hd : hc);
+      }
+      set(5, hT - 1, hl); set(9, hT, hl);
+    } else {
+      // 大媽長捲髮：蓬蓬的大捲，一路捲到肩膀
+      for (let y = hT - 3; y <= bT + 1; y++) for (let x = -3; x <= 18; x++) {
+        const top = Math.pow(Math.abs(x - cx) / 9.5, 2) + Math.pow(Math.abs(y - (hT + 5)) / 8.5, 2) <= 1;
+        if (!top) continue;
+        const face = inHead(x, y) && y > hT + 4 && x > 2 && x < 13;
+        if (face) continue;
+        const ring = (x * 3 + y * 5) % 7;
+        set(x, y, ring === 0 ? hd : ring === 3 ? hl : hc);
+      }
+      for (let x = 3; x <= 12; x++) if (x % 3 !== 1) set(x, hT + 4, hc);       // 捲捲瀏海
+    }
+    if (weird) { set(3, hT - 2, hc); set(7, hT - 3, hc); set(8, hT - 2, hc); set(12, hT - 2, hc); set(13, hT - 1, hc); }  // 亂翹的頭髮
+
+    /* 11. 帽子 */
     if (L.hat !== "none") {
-      const kc = get("hatColor", L.hatColor).c, kd = shade(kc, 0.75), kl = shade(kc, 1.15);
+      const kc = get("hatColor", L.hatColor).c, kd = shade(kc, 0.75), kl = mix(kc, WHITE, 0.3);
       if (L.hat === "cap") {
-        row(5, 10, headTop - 2, kc); row(4, 11, headTop - 1, kc);
-        set(6, headTop - 2, kl); set(7, headTop - 1, "#fff6dc");
-        row(3, 12, headTop, kd); row(9, 13, headTop, kd);
+        for (let y = hT - 2; y <= hT + 2; y++) for (let x = 1; x <= 14; x++) if (headPx(x, y, 0.8)) set(x, y, kc);
+        set(5, hT - 1, kl); set(7, hT, WHITE); set(8, hT, WHITE);
+        row(0, 15, hT + 3, kd);
       } else if (L.hat === "beanie") {
-        set(7, headTop - 3, "#fff6dc"); set(8, headTop - 3, "#fff6dc");
-        row(5, 10, headTop - 2, kc); row(4, 11, headTop - 1, kc);
-        for (let x = 4; x <= 11; x++) { set(x, headTop, x % 2 ? kd : kc); set(x, headTop + 1, x % 2 ? kc : kd); }
+        set(7, hT - 4, WHITE); set(8, hT - 4, WHITE); set(7, hT - 3, WHITE); set(8, hT - 3, WHITE);
+        for (let y = hT - 2; y <= hT + 3; y++) for (let x = 0; x <= 15; x++) if (headPx(x, y, 0.8)) set(x, y, y >= hT + 2 ? (x % 2 ? kd : kc) : kc);
       } else {
-        row(5, 10, headTop - 3, kc); row(5, 10, headTop - 2, kc);
-        row(5, 10, headTop - 1, "#1a1020");
-        row(1, 14, headTop, kd); row(2, 13, headTop, kc);
+        for (let y = hT - 3; y <= hT + 1; y++) row(3, 12, y, y === hT + 1 ? OUT : kc);
+        row(-2, 17, hT + 2, kd); row(-1, 16, hT + 3, kc);
       }
     }
 
-    // 12. 眼鏡
+    /* 12. 眼鏡（圍著 2×2 圓眼） */
     if (L.glasses !== "none") {
-      const F = "#1a1020", LENS = "#9fc3f0", big = L.glassesSize === "big", round = L.glasses === "round";
-      const lens = (x0, x1, eye) => {
-        for (let y = ey - 1; y <= ey + 1; y++) for (let x = x0; x <= x1; x++) {
-          const edge = y !== ey || x === x0 || x === x1;
-          const corner = (x === x0 || x === x1) && y !== ey;
+      const F = "#2a1e18", LENS = "#bfe0ff", big = L.glassesSize === "big", round = L.glasses === "round";
+      const lens = (x0, x1, y0, y1) => {
+        for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+          const edge = y === y0 || y === y1 || x === x0 || x === x1;
+          const corner = (x === x0 || x === x1) && (y === y0 || y === y1);
           if (round && corner) continue;
-          const glass = !round && y === ey + 1 && x !== x0 && x !== x1;
-          set(x, y, glass ? LENS : edge ? F : (x === eye ? INK : LENS));
+          if (edge) set(x, y, F); else if (at(x, y) !== EYE && at(x, y) !== WHITE) set(x, y, LENS);
         }
       };
-      if (big) { lens(4, 7, 6); lens(8, 11, 9); } else { lens(5, 7, 6); lens(8, 10, 9); }
-      if (round && !big) { set(7, ey, F); set(8, ey, F); }
+      if (big) { lens(2, 7, ey - 2, ey + 3); lens(8, 13, ey - 2, ey + 3); }
+      else { lens(3, 6, ey - 1, ey + 2); lens(9, 12, ey - 1, ey + 2); set(7, ey, F); set(8, ey, F); }
     }
 
-    // 13. 爺爺奶奶：上半身往前傾（駝背）＋膝蓋微彎，再拄拐杖
+    /* 13. 爺爺奶奶：上半身往前駝＋拄拐杖 */
     if (elder) {
-      const lean = (n, y1) => { for (let y = 0; y < y1; y++) for (let k = 0; k < n; k++) g[y] = [null].concat(g[y].slice(0, -1)); };
-      lean(1, legsTop + 4);   // 膝蓋微彎
-      lean(1, torsoTop + 4);  // 背往前彎
-      lean(1, torsoTop + 1);  // 頭往前探（駝背）
-      const cx = ra1 + 3;
-      row(ra1 + 1, cx, handY - 1, "#6b4a2b");                                         // 拐杖握把
-      for (let y = handY - 1; y <= 31; y++) set(cx, y, y === 31 ? INK : "#6b4a2b");
-      set(ra1 + 2, handY, SKIN);                                                        // 握著拐杖的手
+      const lean = (y1) => { for (let y = 0; y < y1; y++) g[y] = [null].concat(g[y].slice(0, -1)); };
+      lean(legsTop + 2); lean(bT + 3); lean(bT);
+      const cane = tx1 + 5;
+      row(tx1 + 3, cane, handY - 1, "#7a4e2a");
+      for (let y = handY - 1; y <= 31; y++) set(cane, y, y === 31 ? OUT : "#7a4e2a");
+      set(tx1 + 4, handY, SKIN);
     }
 
-    // 14. 描邊＋裁掉左右空白
+    /* 14. 描邊（深咖啡色，比純黑柔和） */
     const O = Array.from({ length: H + 2 }, () => Array(W + 2).fill(null));
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) O[y + 1][x + 1] = g[y][x];
     const out = O.map((r) => r.slice());
     for (let y = 0; y < H + 2; y++) for (let x = 0; x < W + 2; x++) {
       if (O[y][x]) continue;
-      if ((O[y - 1] && O[y - 1][x]) || (O[y + 1] && O[y + 1][x]) || O[y][x - 1] || O[y][x + 1]) out[y][x] = INK;
+      if ((O[y - 1] && O[y - 1][x]) || (O[y + 1] && O[y + 1][x]) || O[y][x - 1] || O[y][x + 1]) out[y][x] = OUT;
     }
+    if (full) return out;
     let minX = W + 2, maxX = -1;
     out.forEach((r) => r.forEach((c, x) => { if (c) { minX = Math.min(minX, x); maxX = Math.max(maxX, x); } }));
-    if (full) return out;
     return out.map((r) => r.slice(minX, maxX + 1));
   }
 
@@ -316,7 +329,7 @@
     const g = canvas.getContext("2d");
     g.clearRect(0, 0, s.width, s.height); g.drawImage(s, 0, 0);
     canvas.setAttribute("role", "img");
-    canvas.setAttribute("aria-label", "奧客外觀：" + describe(look));
+    canvas.setAttribute("aria-label", "人物外觀：" + describe(look));
   }
 
   /* ---- 編輯器 ---- */
@@ -349,7 +362,15 @@
       const b = e.target.closest("[data-k],[data-ava]"); if (!b) return;
       if (b.dataset.ava === "random") look = random();
       else if (b.dataset.ava === "reset") look = { ...DEFAULT };
-      else look = { ...look, [b.dataset.k]: b.dataset.v };
+      else {
+        const k = b.dataset.k, v = b.dataset.v;
+        look = { ...look, [k]: v };
+        // 婆婆媽媽自動變女生、奇怪大哥自動變男生；反過來改性別時跳到相近的種類
+        if (k === "age" && BIND[v]) look.gender = BIND[v];
+        if (k === "gender" && BIND[look.age] && BIND[look.age] !== v) look.age = look.age === "auntie" ? "parent" : "office";
+        if (k === "age" && v === "auntie" && look.hairLen === "short") look.hairLen = "perm";
+      }
+      look = normalize(look);
       paint(); onChange && onChange(look);
     });
     paint();
