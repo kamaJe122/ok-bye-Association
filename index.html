@@ -2,7 +2,7 @@
 <html lang="zh-Hant-TW">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>奧客互助協會</title>
 <meta name="description" content="附近餐廳出現奧客？店員一鍵求救，路過的勇者接任務拿獎勵。">
 <meta name="theme-color" content="#14306b">
@@ -259,8 +259,10 @@ body.modal-open{overflow:hidden}
 .levels input{position:absolute;left:0;top:0;width:1px!important;height:1px;margin:0;padding:0;box-shadow:none;opacity:0;pointer-events:none}
 .vh{width:1px!important;height:1px!important;margin:0!important;padding:0!important;box-shadow:none!important;left:0;top:0}
 html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
-html,body{max-width:100%;overflow-x:hidden;overscroll-behavior:none}
-#app{width:100%;height:100%;height:100dvh;max-width:100vw;overflow:hidden}
+html,body{max-width:100%;overflow:hidden;overscroll-behavior:none}
+/* 整頁高度＝手機實際看得到的高度（由 app.js 量 window.innerHeight 寫入 --app-h）。
+   不用 100dvh：從主畫面打開時，部分 Android 會把系統導覽列也算進去，底部分頁會被擠出螢幕 */
+#app{width:100%;height:100%;height:var(--app-h,100%);max-width:100vw;overflow:hidden}
 #stage{min-height:0;min-width:0}
 /* 彈出面板：只能上下捲，鎖住左右 */
 .sheet{overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;-webkit-overflow-scrolling:touch;

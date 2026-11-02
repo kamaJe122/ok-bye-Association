@@ -1,14 +1,26 @@
-/* 奧客互助協會 v1.7.0
+/* 奧客互助協會 v1.7.1
    創意發起人：Popcorn ｜ 程式美編設計：Kama
    純 HTML + JS，PWA：可離線、可加到主畫面（Android / iOS / 電腦） */
 (() => {
 "use strict";
 const CFG = Object.assign({ GMAPS_KEY: "", FIREBASE: null, RADIUS_M: 500, SOS_EXPIRE_MIN: 60, DEMO_SEED: true }, window.AOK_CONFIG || {});
-const VERSION = "v1.7.0";
+const VERSION = "v1.7.1";
 const AV = window.AokAvatar;
 const shade = AV.shade;
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+
+/* ---------- 整頁高度：用實際看得到的高度，底部分頁永遠在螢幕內 ---------- */
+function fitAppHeight() {
+  const h = window.innerHeight;
+  if (h > 200) document.documentElement.style.setProperty("--app-h", h + "px");
+  if (window.scrollY) window.scrollTo(0, 0);   // 鍵盤收起後，把被推上去的畫面拉回來
+}
+fitAppHeight();
+addEventListener("resize", fitAppHeight);
+addEventListener("orientationchange", () => setTimeout(fitAppHeight, 300));
+if (window.visualViewport) visualViewport.addEventListener("resize", () => { if (!document.activeElement || !/INPUT|TEXTAREA/.test(document.activeElement.tagName)) fitAppHeight(); });
+document.addEventListener("focusout", () => setTimeout(fitAppHeight, 200));
 
 /* ---------- 小工具 ---------- */
 const store = {
